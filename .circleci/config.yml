@@ -28,6 +28,16 @@ jobs:
             - carbon-relay-ng
             - carbon-relay-ng.exe
 
+  version:
+    docker:
+      - image: cibuilds/github:0.10
+    steps:
+      - run: git describe --tags --always | sed 's/^v//' > build/version.txt
+      - persist_to_workspace:
+          root: .
+          paths:
+            - build
+
   publish-github-release:
     docker:
       - image: cibuilds/github:0.10
@@ -37,7 +47,8 @@ jobs:
       - run:
           name: "Publish Release on GitHub"
           command: |
-            VERSION=$(git describe --tags --always | sed 's/^v//')
+            ls -R ./artifacts/
+            VERSION=$(cat artifacts/build/version.txt)
             ghr -t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -delete ${VERSION} ./artifacts/
 
 workflows:
@@ -49,4 +60,5 @@ workflows:
       - publish-github-release:
           requires:
             - build
+            - version
 
