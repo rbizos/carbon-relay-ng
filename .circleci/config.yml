@@ -28,25 +28,6 @@ jobs:
             - carbon-relay-ng
             - carbon-relay-ng.exe
 
-  package:
-    docker:
-      - image: circleci/ruby:2.3
-    steps:
-      - run: sudo apt-get install rpm
-      - checkout
-      - attach_workspace:
-          at: .
-      - run: gem install fpm
-      - run: make packages
-      - setup_remote_docker
-      - run: make docker
-      - run: docker save -o build/carbon-relay-ng.tar raintank/carbon-relay-ng
-      - run: git describe --tags --always | sed 's/^v//' > build/version.txt
-      - persist_to_workspace:
-          root: .
-          paths:
-            - build
-
   deploy:
     docker:
       - image: circleci/ruby:2.3
@@ -75,11 +56,7 @@ workflows:
     jobs:
       - test
       - build
-      - package:
-          requires:
-            - build
       - deploy:
           requires:
             - test
             - build
-            - package
