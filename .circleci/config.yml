@@ -40,7 +40,7 @@ jobs:
           name: "Publish Release on GitHub"
           command: |
             VERSION=$(cat ./artifacts/version.txt)
-            ghr -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -debug truc artifacts
+            ghr -t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -debug truc artifacts
 
 workflows:
   version: 2
