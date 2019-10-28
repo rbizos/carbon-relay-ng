@@ -12,7 +12,9 @@ require (
 	github.com/eapache/go-resiliency v1.2.0 // indirect
 	github.com/elazarl/go-bindata-assetfs v1.0.0
 	github.com/frankban/quicktest v1.4.1 // indirect
+	github.com/gocql/gocql v0.0.0-20191018090344-07ace3bab0f8
 	github.com/google/go-cmp v0.3.1
+	github.com/google/uuid v1.1.1
 	github.com/gorilla/handlers v1.4.2
 	github.com/gorilla/mux v1.7.3
 	github.com/jcmturner/gofork v1.0.0 // indirect
@@ -42,6 +44,7 @@ require (
 	golang.org/x/sys v0.0.0-20190826190057-c7b8b68b1456 // indirect
 	golang.org/x/text v0.3.2 // indirect
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
+	gopkg.in/ini.v1 v1.49.0
 	gopkg.in/jcmturner/goidentity.v3 v3.0.0 // indirect
 	gopkg.in/jcmturner/gokrb5.v7 v7.3.0 // indirect
 )
