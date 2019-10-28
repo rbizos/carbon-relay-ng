@@ -801,6 +801,8 @@ func (table *Table) InitRoutes(config cfg.Config, meta toml.MetaData) error {
 				routeConfig.Prefix,
 				routeConfig.Substr,
 				routeConfig.Regex,
+				bgMetadataCfg.StorageAggregationConfig,
+				bgMetadataCfg.StorageSchemasConfig,
 				bloomFilterConfig,
 			)
 			if err != nil {

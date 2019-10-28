@@ -18,6 +18,7 @@ import (
 	"github.com/graphite-ng/carbon-relay-ng/encoding"
 	"github.com/graphite-ng/carbon-relay-ng/matcher"
 	"github.com/graphite-ng/carbon-relay-ng/metrics"
+	"github.com/graphite-ng/carbon-relay-ng/storage"
 	"github.com/willf/bloom"
 	"go.uber.org/zap"
 )
@@ -42,12 +43,16 @@ type BloomFilterConfig struct {
 // BgMetadata contains data required to start, stop and reset a metric metadata producer.
 type BgMetadata struct {
 	baseRoute
-	shards []shard
-	ctx    context.Context
-	cancel context.CancelFunc
-	wg     sync.WaitGroup
-	bfCfg  BloomFilterConfig
-	mm     metrics.BgMetadataMetrics
+	shards              []shard
+	ctx                 context.Context
+	cancel              context.CancelFunc
+	wg                  sync.WaitGroup
+	bfCfg               BloomFilterConfig
+	mm                  metrics.BgMetadataMetrics
+	cassandra           storage.CassandraConnector
+	metricDirectories   chan string
+	storageSchemas      []storage.StorageSchema
+	storageAggregations []storage.StorageAggregation
 }
 
 // NewBloomFilterConfig creates a new BloomFilterConfig
@@ -71,11 +76,25 @@ func NewBloomFilterConfig(n uint, p float64, shardingFactor int, cache string, c
 }
 
 // NewBgMetadataRoute creates BgMetadata, starts sharding and filtering incoming metrics.
-func NewBgMetadataRoute(key, prefix, sub, regex string, bfCfg BloomFilterConfig) (*BgMetadata, error) {
+func NewBgMetadataRoute(key, prefix, sub, regex, aggregationCfg, schemasCfg string, bfCfg BloomFilterConfig) (*BgMetadata, error) {
+	// to make value assignments easier
+	var err error
+
 	m := BgMetadata{
-		baseRoute: *newBaseRoute(key, "bg_metadata"),
-		shards:    make([]shard, bfCfg.ShardingFactor),
-		bfCfg:     bfCfg,
+		baseRoute:         *newBaseRoute(key, "bg_metadata"),
+		shards:            make([]shard, bfCfg.ShardingFactor),
+		bfCfg:             bfCfg,
+		metricDirectories: make(chan string),
+	}
+
+	// load schema and aggregation configuration files
+	m.storageAggregations, err = storage.NewStorageAggregations(aggregationCfg)
+	if err != nil {
+		return &m, err
+	}
+	m.storageSchemas, err = storage.NewStorageSchemas(schemasCfg)
+	if err != nil {
+		return &m, err
 	}
 
 	// init every shard with filter
@@ -119,6 +138,9 @@ func NewBgMetadataRoute(key, prefix, sub, regex string, bfCfg BloomFilterConfig)
 	m.rm = metrics.NewRouteMetrics(key, "bg_metadata", nil)
 
 	go m.clearBloomFilter()
+
+	m.cassandra = storage.NewCassandraMetadata()
+	go m.createMetadataDirectories()
 
 	// matcher required to initialise route.Config for routing table, othewise it will panic
 	mt, err := matcher.New(prefix, sub, regex)
@@ -263,6 +285,24 @@ func (m *BgMetadata) deleteCache() error {
 	return nil
 }
 
+func (m *BgMetadata) createMetadataDirectories() error {
+	m.wg.Add(1)
+	defer m.wg.Done()
+	dirFilter := bloom.NewWithEstimates(m.bfCfg.N, m.bfCfg.P)
+	for {
+		select {
+		case <-m.ctx.Done():
+			return nil
+		case dir := <-m.metricDirectories:
+			if !dirFilter.TestString(dir) {
+				dirFilter.AddString(dir)
+				md := storage.NewMetricDirectory(dir)
+				md.UpdateDirectories(m.cassandra)
+			}
+		}
+	}
+}
+
 // Shutdown cancels the context used in BgMetadata and goroutines
 // It waits for goroutines to close channels and finish before exiting
 func (m *BgMetadata) Shutdown() error {
@@ -285,7 +325,11 @@ func (m *BgMetadata) Dispatch(dp encoding.Datapoint) {
 	if !shard.filter.TestString(dp.Name) {
 		shard.filter.AddString(dp.Name)
 		m.mm.AddedMetrics.Inc()
-		// do nothing for now
+		metricMetadata := storage.NewMetricMetadata(dp.Name, m.storageSchemas, m.storageAggregations)
+		metric := storage.NewMetric(dp.Name, metricMetadata)
+		// add metric name to directory channel for dirs to be created if needed in a separate goroutine
+		m.metricDirectories <- dp.Name
+		m.cassandra.UpdateMetricMetadata(metric)
 	} else {
 		// don't output metrics already in the filter
 		m.mm.FilteredMetrics.Inc()
