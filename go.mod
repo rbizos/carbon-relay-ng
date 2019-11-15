@@ -9,7 +9,9 @@ require (
 	github.com/Shopify/sarama v1.23.1
 	github.com/VictoriaMetrics/fastcache v1.5.1
 	github.com/allegro/bigcache v1.2.1 // indirect
+	github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869
 	github.com/eapache/go-resiliency v1.2.0 // indirect
+	github.com/elastic/go-elasticsearch/v7 v7.4.1
 	github.com/elazarl/go-bindata-assetfs v1.0.0
 	github.com/frankban/quicktest v1.4.1 // indirect
 	github.com/gocql/gocql v0.0.0-20191018090344-07ace3bab0f8
@@ -23,17 +25,20 @@ require (
 	github.com/libp2p/go-reuseport v0.0.0-20190411201116-b72b23b78b80
 	github.com/mitchellh/mapstructure v1.1.2
 	github.com/pierrec/lz4 v2.2.6+incompatible // indirect
+	github.com/pkg/errors v0.8.1
 	github.com/prometheus/client_golang v1.1.0
-	github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4 // indirect
+	github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4
 	github.com/prometheus/procfs v0.0.4 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20190826022208-cac0b30c2563 // indirect
 	github.com/segmentio/kafka-go v0.3.3
 	github.com/serialx/hashring v0.0.0-20190422032157-8b2912629002
+	github.com/smartystreets/goconvey v1.6.4 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/stretchr/testify v1.4.0
 	github.com/syndtr/goleveldb v1.0.0
 	github.com/taylorchu/toki v0.0.0-20141019163204-20e86122596c
 	github.com/valyala/fastrand v1.0.0
+	github.com/vektra/mockery v0.0.0-20181123154057-e78b021dcbb5 // indirect
 	github.com/willf/bitset v1.1.10 // indirect
 	github.com/willf/bloom v2.0.3+incompatible
 	go.uber.org/atomic v1.4.0 // indirect

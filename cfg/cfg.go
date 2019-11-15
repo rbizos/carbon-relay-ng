@@ -132,6 +132,8 @@ type BgMetadataRouteConfig struct {
 	Cache                    string  `toml:"cache,omitempty"`           // location of filter storage on disk; feature not enabled if path not provided
 	StorageAggregationConfig string  `toml:"storage_aggregations,omitempty"`
 	StorageSchemasConfig     string  `toml:"storage_schemas,omitempty"`
+	Storage                  string  `toml:"storage,omitempty"`
+	StorageServer            string  `toml:"storage_server,omitempty"`
 }
 
 type Rewriter struct {

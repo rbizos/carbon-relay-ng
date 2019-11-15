@@ -39,7 +39,7 @@ func testBgMetadata(t *testing.T) *BgMetadata {
 		agg    = "/tmp/storage-aggregation.conf"
 	)
 	bfc := testBloomFilterConfig()
-	m, _ := NewBgMetadataRoute(key, prefix, sub, regex, agg, sch, bfc)
+	m, _ := NewBgMetadataRoute(key, prefix, sub, regex, agg, sch, bfc, "")
 	m.ctx, m.cancel = context.WithCancel(context.Background())
 	return m
 }

@@ -43,18 +43,18 @@ type CassandraConnector struct {
 	session *gocql.Session
 }
 
-func NewCassandraMetadata() CassandraConnector {
+func NewCassandraMetadata() *CassandraConnector {
 	cluster := gocql.NewCluster("localhost")
 	cluster.Keyspace = keyspace
 	session, err := cluster.CreateSession()
 	if err != nil {
 		fmt.Println(err.Error())
-		return CassandraConnector{}
+		return &CassandraConnector{}
 	}
 	cc := CassandraConnector{
 		session: session,
 	}
-	return cc
+	return &cc
 }
 
 func (cc *CassandraConnector) UpdateMetricMetadata(metric Metric) error {
