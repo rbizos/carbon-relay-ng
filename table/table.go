@@ -784,6 +784,14 @@ func (table *Table) InitRoutes(config cfg.Config, meta toml.MetaData) error {
 				return fmt.Errorf("error adding route '%s': clear wait value must be less than clear_interval / sharding_factor", routeConfig.Key)
 			}
 
+			if bgMetadataCfg.Storage != "cassandra" && bgMetadataCfg.Storage != "elasticsearch" && bgMetadataCfg.Storage != "" {
+				return fmt.Errorf("error adding route '%s': storage value must be 'cassandra', 'elasticsearch' or ''", routeConfig.Key)
+			}
+
+			if bgMetadataCfg.Storage == "elasticsearch" && bgMetadataCfg.StorageServer == "" {
+				return fmt.Errorf("error adding route '%s': undefined storage server", routeConfig.Key)
+			}
+
 			bloomFilterConfig, err := route.NewBloomFilterConfig(
 				bgMetadataCfg.FilterSize,
 				bgMetadataCfg.FaultTolerance,
@@ -796,15 +804,7 @@ func (table *Table) InitRoutes(config cfg.Config, meta toml.MetaData) error {
 				return fmt.Errorf("error adding route '%s': %s", routeConfig.Key, err)
 			}
 
-			route, err := route.NewBgMetadataRoute(
-				routeConfig.Key,
-				routeConfig.Prefix,
-				routeConfig.Substr,
-				routeConfig.Regex,
-				bgMetadataCfg.StorageAggregationConfig,
-				bgMetadataCfg.StorageSchemasConfig,
-				bloomFilterConfig,
-			)
+			route, err := route.NewBgMetadataRoute(routeConfig.Key, routeConfig.Prefix, routeConfig.Substr, routeConfig.Regex, bgMetadataCfg.StorageAggregationConfig, bgMetadataCfg.StorageSchemasConfig, bloomFilterConfig, bgMetadataCfg.Storage, bgMetadataCfg.StorageServer)
 			if err != nil {
 				return fmt.Errorf("error adding route '%s': %s", routeConfig.Key, err)
 			}

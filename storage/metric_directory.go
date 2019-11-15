@@ -39,13 +39,13 @@ func (md *MetricDirectory) generateParentDirectories() []MetricDirectory {
 	return parents
 }
 
-func (md *MetricDirectory) UpdateDirectories(cassandra CassandraConnector) error {
-	entry, err := cassandra.SelectDirectory(md.name)
+func (md *MetricDirectory) UpdateDirectories(storageConnector BgMetadataStorageConnector) error {
+	entry, err := storageConnector.SelectDirectory(md.name)
 	if err != nil {
 		if entry == "" {
 			parentDirectories := md.generateParentDirectories()
 			for _, pd := range parentDirectories {
-				err = cassandra.InsertDirectory(pd)
+				err = storageConnector.InsertDirectory(pd)
 				if err != nil {
 					fmt.Println(err.Error())
 				}
@@ -54,7 +54,7 @@ func (md *MetricDirectory) UpdateDirectories(cassandra CassandraConnector) error
 			return fmt.Errorf("cannot check metric directory in cassandra: %s", err.Error())
 		}
 	}
-	err = cassandra.InsertDirectory(*md)
+	err = storageConnector.InsertDirectory(*md)
 	if err != nil {
 		fmt.Println(err.Error())
 	}
