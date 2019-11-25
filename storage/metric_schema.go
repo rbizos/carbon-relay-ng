@@ -1,11 +1,15 @@
 package storage
 
-import "gopkg.in/ini.v1"
+import (
+	"gopkg.in/ini.v1"
+	"regexp"
+	)
 
 type StorageSchema struct {
 	ID         string
 	pattern    string
 	retentions string
+	patternRegex      *regexp.Regexp
 }
 
 func NewStorageSchemas(storageSchemasConf string) ([]StorageSchema, error) {
@@ -15,12 +19,15 @@ func NewStorageSchemas(storageSchemasConf string) ([]StorageSchema, error) {
 		return schemas, nil
 	}
 	for _, section := range cfg.Sections()[1:] { // first element is empty default value
+		pattern := section.KeysHash()["PATTERN"]
+		patternRegex, _ := regexp.Compile(pattern)
 		schemas = append(
 			schemas,
 			StorageSchema{
 				ID:         section.Name(),
-				pattern:    section.KeysHash()["PATTERN"],
+				pattern:    pattern,
 				retentions: section.KeysHash()["RETENTIONS"],
+				patternRegex: patternRegex,
 			},
 		)
 	}

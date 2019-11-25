@@ -79,7 +79,7 @@ func NewBloomFilterConfig(n uint, p float64, shardingFactor int, cache string, c
 }
 
 // NewBgMetadataRoute creates BgMetadata, starts sharding and filtering incoming metrics.
-func NewBgMetadataRoute(key, prefix, sub, regex, aggregationCfg, schemasCfg string, bfCfg BloomFilterConfig, storageName string, storageServer string) (*BgMetadata, error) {
+func NewBgMetadataRoute(key, prefix, sub, regex, aggregationCfg, schemasCfg string, bfCfg BloomFilterConfig, storageName string, storageServer string, elasticSearchBulkSize uint) (*BgMetadata, error) {
 	// to make value assignments easier
 	var err error
 
@@ -147,7 +147,7 @@ func NewBgMetadataRoute(key, prefix, sub, regex, aggregationCfg, schemasCfg stri
 		m.storage = storage.NewCassandraMetadata()
 		m.maxConcurrentWrites = make(chan int, 1)
 	case "elasticsearch":
-		m.storage = storage.NewBgMetadataElasticSearchConnectorWithDefaults(storageServer)
+		m.storage = storage.NewBgMetadataElasticSearchConnectorWithDefaults(storageServer, elasticSearchBulkSize)
 		m.maxConcurrentWrites = make(chan int, 10)
 	default:
 		m.storage = storage.NewBgMetadataNoOpStorageConnector()
