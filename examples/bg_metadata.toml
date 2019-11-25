@@ -24,8 +24,8 @@ type = 'bg_metadata'
     storage_schemas = "/tmp/storage-schemas.conf"
     storage_aggregations = "/tmp/storage-aggregation.conf"
     storage = "elasticsearch"
-    storage_server = "http://localhost:9201"
-
+    storage_server = "http://localhost:9200"
+    elasticsearch_bulk_size = 10000
 
 [[route]]
 key = 'carbon-default'

@@ -788,8 +788,13 @@ func (table *Table) InitRoutes(config cfg.Config, meta toml.MetaData) error {
 				return fmt.Errorf("error adding route '%s': storage value must be 'cassandra', 'elasticsearch' or ''", routeConfig.Key)
 			}
 
-			if bgMetadataCfg.Storage == "elasticsearch" && bgMetadataCfg.StorageServer == "" {
-				return fmt.Errorf("error adding route '%s': undefined storage server", routeConfig.Key)
+			if bgMetadataCfg.Storage == "elasticsearch" {
+				if bgMetadataCfg.StorageServer == "" {
+					return fmt.Errorf("error adding route '%s': undefined storage server", routeConfig.Key)
+				}
+				if bgMetadataCfg.ElasticSearchBulkSize == 0 {
+					return fmt.Errorf("error adding route '%s': elasticsearch bulk size must be > 0 (not %d)", routeConfig.Key, bgMetadataCfg.ElasticSearchBulkSize)
+				}
 			}
 
 			bloomFilterConfig, err := route.NewBloomFilterConfig(
@@ -804,7 +809,7 @@ func (table *Table) InitRoutes(config cfg.Config, meta toml.MetaData) error {
 				return fmt.Errorf("error adding route '%s': %s", routeConfig.Key, err)
 			}
 
-			route, err := route.NewBgMetadataRoute(routeConfig.Key, routeConfig.Prefix, routeConfig.Substr, routeConfig.Regex, bgMetadataCfg.StorageAggregationConfig, bgMetadataCfg.StorageSchemasConfig, bloomFilterConfig, bgMetadataCfg.Storage, bgMetadataCfg.StorageServer)
+			route, err := route.NewBgMetadataRoute(routeConfig.Key, routeConfig.Prefix, routeConfig.Substr, routeConfig.Regex, bgMetadataCfg.StorageAggregationConfig, bgMetadataCfg.StorageSchemasConfig, bloomFilterConfig, bgMetadataCfg.Storage, bgMetadataCfg.StorageServer, bgMetadataCfg.ElasticSearchBulkSize)
 			if err != nil {
 				return fmt.Errorf("error adding route '%s': %s", routeConfig.Key, err)
 			}

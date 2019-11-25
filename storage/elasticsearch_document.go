@@ -36,3 +36,16 @@ func BuildElasticSearchDocument(metric Metric) string {
 	b.WriteString(`}`)
 	return b.String()
 }
+
+func BuildElasticSearchDocumentMulti(indexName string, metrics []Metric) string {
+	var b strings.Builder
+	for _, metric := range metrics {
+		b.WriteString(fmt.Sprintf(`{"index":{"_index":"%s","_id":"%s"}}`, indexName, metric.id))
+		b.WriteString("\n")
+
+		b.WriteString(BuildElasticSearchDocument(metric))
+		b.WriteString("\n")
+
+	}
+	return b.String()
+}

@@ -9,16 +9,19 @@ require (
 	github.com/Shopify/sarama v1.23.1
 	github.com/VictoriaMetrics/fastcache v1.5.1
 	github.com/allegro/bigcache v1.2.1 // indirect
-	github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869
+	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e // indirect
 	github.com/eapache/go-resiliency v1.2.0 // indirect
+	github.com/elastic/go-elasticsearch/v6 v6.8.2
 	github.com/elastic/go-elasticsearch/v7 v7.4.1
 	github.com/elazarl/go-bindata-assetfs v1.0.0
 	github.com/frankban/quicktest v1.4.1 // indirect
 	github.com/gocql/gocql v0.0.0-20191018090344-07ace3bab0f8
 	github.com/google/go-cmp v0.3.1
+	github.com/google/pprof v0.0.0-20191105193234-27840fff0d09 // indirect
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/handlers v1.4.2
 	github.com/gorilla/mux v1.7.3
+	github.com/ianlancetaylor/demangle v0.0.0-20181102032728-5e5cf60278f6 // indirect
 	github.com/jcmturner/gofork v1.0.0 // indirect
 	github.com/jpillora/backoff v0.0.0-20180909062703-3050d21c67d7
 	github.com/kisielk/og-rek v1.0.0
@@ -38,7 +41,6 @@ require (
 	github.com/syndtr/goleveldb v1.0.0
 	github.com/taylorchu/toki v0.0.0-20141019163204-20e86122596c
 	github.com/valyala/fastrand v1.0.0
-	github.com/vektra/mockery v0.0.0-20181123154057-e78b021dcbb5 // indirect
 	github.com/willf/bitset v1.1.10 // indirect
 	github.com/willf/bloom v2.0.3+incompatible
 	go.uber.org/atomic v1.4.0 // indirect

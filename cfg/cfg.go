@@ -134,6 +134,7 @@ type BgMetadataRouteConfig struct {
 	StorageSchemasConfig     string  `toml:"storage_schemas,omitempty"`
 	Storage                  string  `toml:"storage,omitempty"`
 	StorageServer            string  `toml:"storage_server,omitempty"`
+	ElasticSearchBulkSize	 uint    `toml:"elasticsearch_bulk_size,omitempty"`
 }
 
 type Rewriter struct {
