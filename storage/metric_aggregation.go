@@ -1,10 +1,10 @@
 package storage
 
 import (
-	"gopkg.in/ini.v1"
 	"regexp"
-)
 
+	"gopkg.in/ini.v1"
+)
 
 type StorageAggregation struct {
 	ID                string
@@ -18,7 +18,7 @@ func NewStorageAggregations(storageAggregationConf string) ([]StorageAggregation
 	aggr := []StorageAggregation{}
 	cfg, err := ini.Load(storageAggregationConf)
 	if err != nil {
-		return aggr, nil
+		return aggr, err
 	}
 	for _, section := range cfg.Sections()[1:] { // first element is empty default value
 		pattern := section.KeysHash()["PATTERN"]
