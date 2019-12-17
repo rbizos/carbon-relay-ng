@@ -5,8 +5,6 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	"hash/crc32"
 	"io/ioutil"
 	"os"
@@ -15,8 +13,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/graphite-ng/carbon-relay-ng/cfg"
 	"github.com/graphite-ng/carbon-relay-ng/encoding"
 	"github.com/graphite-ng/carbon-relay-ng/matcher"
 	"github.com/graphite-ng/carbon-relay-ng/metrics"
@@ -79,7 +81,8 @@ func NewBloomFilterConfig(n uint, p float64, shardingFactor int, cache string, c
 }
 
 // NewBgMetadataRoute creates BgMetadata, starts sharding and filtering incoming metrics.
-func NewBgMetadataRoute(key, prefix, sub, regex, aggregationCfg, schemasCfg string, bfCfg BloomFilterConfig, storageName string, storageServer string, elasticSearchBulkSize uint) (*BgMetadata, error) {
+// additionnalCfg should be nil or *cfg.BgMetadataESConfig if elasticsearch
+func NewBgMetadataRoute(key, prefix, sub, regex, aggregationCfg, schemasCfg string, bfCfg BloomFilterConfig, storageName string, additionnalCfg interface{}) (*BgMetadata, error) {
 	// to make value assignments easier
 	var err error
 
@@ -141,14 +144,18 @@ func NewBgMetadataRoute(key, prefix, sub, regex, aggregationCfg, schemasCfg stri
 	m.rm = metrics.NewRouteMetrics(key, "bg_metadata", nil)
 
 	go m.clearBloomFilter()
-
 	switch storageName {
 	case "cassandra":
 		m.storage = storage.NewCassandraMetadata()
 		m.maxConcurrentWrites = make(chan int, 1)
 	case "elasticsearch":
-		m.storage = storage.NewBgMetadataElasticSearchConnectorWithDefaults(storageServer, elasticSearchBulkSize)
-		m.maxConcurrentWrites = make(chan int, 10)
+		if v, ok := additionnalCfg.(*cfg.BgMetadataESConfig); ok == true {
+			m.storage = storage.NewBgMetadataElasticSearchConnectorWithDefaults(v)
+			m.maxConcurrentWrites = make(chan int, 10)
+		} else {
+			return &m, fmt.Errorf("missing elasticsearch configuration")
+		}
+
 	default:
 		m.storage = storage.NewBgMetadataNoOpStorageConnector()
 		m.maxConcurrentWrites = make(chan int, 1)
@@ -156,8 +163,8 @@ func NewBgMetadataRoute(key, prefix, sub, regex, aggregationCfg, schemasCfg stri
 
 	promauto.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace: "bgmetadata",
-		Name: "pending_storage_writes",
-		Help: "number of pending storage write requests",
+		Name:      "pending_storage_writes",
+		Help:      "number of pending storage write requests",
 	}, func() float64 { return float64(len(m.maxConcurrentWrites)) })
 
 	go m.createMetadataDirectories()
@@ -350,10 +357,10 @@ func (m *BgMetadata) Dispatch(dp encoding.Datapoint) {
 		// add metric name to directory channel for dirs to be created if needed in a separate goroutine
 		m.metricDirectories <- dp.Name
 		m.maxConcurrentWrites <- 1
-		go func()  {
+		go func() {
 			m.storage.UpdateMetricMetadata(metric)
-			<- m.maxConcurrentWrites
-		 }()
+			<-m.maxConcurrentWrites
+		}()
 	} else {
 		// don't output metrics already in the filter
 		m.mm.FilteredMetrics.Inc()

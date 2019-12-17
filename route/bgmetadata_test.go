@@ -39,7 +39,7 @@ func testBgMetadata(t *testing.T) *BgMetadata {
 		agg    = "/tmp/storage-aggregation.conf"
 	)
 	bfc := testBloomFilterConfig()
-	m, _ := NewBgMetadataRoute(key, prefix, sub, regex, agg, sch, bfc, "")
+	m, _ := NewBgMetadataRoute(key, prefix, sub, regex, agg, sch, bfc, "", nil)
 	m.ctx, m.cancel = context.WithCancel(context.Background())
 	return m
 }
@@ -71,3 +71,4 @@ func TestClearWaitDefaultValue(t *testing.T) {
 	bfc := testBloomFilterConfig()
 	assert.Equal(t, bfc.ClearWait, bfc.ClearInterval/time.Duration(bfc.ShardingFactor))
 }
+
