@@ -3,22 +3,24 @@ package storage
 import (
 	"context"
 	"fmt"
-	"github.com/elastic/go-elasticsearch/v6"
-	"github.com/elastic/go-elasticsearch/v6/esapi"
-	"github.com/prometheus/client_golang/prometheus"
 	"io/ioutil"
 	"log"
 	"net/http"
-	"os"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/elastic/go-elasticsearch/v6"
+	"github.com/elastic/go-elasticsearch/v6/esapi"
+	"github.com/graphite-ng/carbon-relay-ng/cfg"
+	"github.com/prometheus/client_golang/prometheus"
 )
+
 const (
- namespace                            = "elasticsearch"
- metrics_metadata_index               = "biggraphite_metrics"
- metrics_metadata_index_suffix_format = "_2006-01-02"
- mapping                              = `
+	namespace                            = "elasticsearch"
+	metrics_metadata_index               = "biggraphite_metrics"
+	metrics_metadata_index_suffix_format = "_2006-01-02"
+	mapping                              = `
 {
 "_doc": {
 "properties": {
@@ -53,19 +55,19 @@ const (
 	}
 }
 `
- documentType = "_doc"
+	documentType = "_doc"
 )
 
 type BgMetadataElasticSearchConnector struct {
-	client          ElasticSearchClient
-	UpdatedMetrics  *prometheus.CounterVec
-	WriteDurationMs prometheus.Histogram
+	client                  ElasticSearchClient
+	UpdatedMetrics          *prometheus.CounterVec
+	WriteDurationMs         prometheus.Histogram
 	DocumentBuildDurationMs prometheus.Histogram
-	KnownIndices    map[string]bool
-	InputChannel    chan GroupingChannelElement
-	GroupingChannel *GroupingChannel
-	BulkSize        uint
-	WaitGroup       *sync.WaitGroup
+	KnownIndices            map[string]bool
+	InputChannel            chan GroupingChannelElement
+	GroupingChannel         *GroupingChannel
+	BulkSize                uint
+	WaitGroup               *sync.WaitGroup
 }
 
 type ElasticSearchClient interface {
@@ -81,10 +83,10 @@ func NewBgMetadataElasticSearchConnector(elasticSearchClient ElasticSearchClient
 			Help:      "total number of metrics updated in ElasticSearch",
 		}, []string{"status"}),
 		WriteDurationMs: prometheus.NewHistogram(prometheus.HistogramOpts{
-		Namespace: namespace,
-		Name:      "write_duration_ms",
-		Help:      "time spent writing to ElasticSearch",
-		Buckets:   []float64{250, 500, 750, 1000, 1500, 2000, 5000, 10000}}),
+			Namespace: namespace,
+			Name:      "write_duration_ms",
+			Help:      "time spent writing to ElasticSearch",
+			Buckets:   []float64{250, 500, 750, 1000, 1500, 2000, 5000, 10000}}),
 		DocumentBuildDurationMs: prometheus.NewHistogram(prometheus.HistogramOpts{
 			Namespace: namespace,
 			Name:      "document_build_duration_ms",
@@ -97,7 +99,7 @@ func NewBgMetadataElasticSearchConnector(elasticSearchClient ElasticSearchClient
 
 	esc.KnownIndices = map[string]bool{}
 
-	esc.InputChannel = make(chan GroupingChannelElement, bulkSize * 2)
+	esc.InputChannel = make(chan GroupingChannelElement, bulkSize*2)
 	var wg sync.WaitGroup
 	esc.WaitGroup = &wg
 	esc.WaitGroup.Add(1)
@@ -109,20 +111,13 @@ func NewBgMetadataElasticSearchConnector(elasticSearchClient ElasticSearchClient
 	return &esc
 }
 
-func CreateElasticSearchClient(server string) (*elasticsearch.Client, error) {
+func CreateElasticSearchClient(server, username, password string) (*elasticsearch.Client, error) {
 	cfg := elasticsearch.Config{
 		Addresses: []string{
 			server,
 		},
-	}
-
-	username, exists := os.LookupEnv("ES_USER")
-	if exists {
-		cfg.Username = username
-	}
-	password, exists := os.LookupEnv("ES_PASS")
-	if exists {
-		cfg.Password = password
+		Username: username,
+		Password: password,
 	}
 
 	es, err := elasticsearch.NewClient(cfg)
@@ -138,17 +133,17 @@ func CreateElasticSearchClient(server string) (*elasticsearch.Client, error) {
 	return es, err
 }
 
-func NewBgMetadataElasticSearchConnectorWithDefaults(server string, bulkSize uint) *BgMetadataElasticSearchConnector {
-	es, err := CreateElasticSearchClient(server)
+func NewBgMetadataElasticSearchConnectorWithDefaults(cfg *cfg.BgMetadataESConfig) *BgMetadataElasticSearchConnector {
+	es, err := CreateElasticSearchClient(cfg.StorageServer, cfg.Username, cfg.Password)
 
 	if err != nil {
 		log.Fatalf("Could not create ElasticSearch connector: %w", err)
 	}
 
-	return NewBgMetadataElasticSearchConnector(es, prometheus.DefaultRegisterer, bulkSize)
+	return NewBgMetadataElasticSearchConnector(es, prometheus.DefaultRegisterer, cfg.BulkSize)
 }
 
-func (esc *BgMetadataElasticSearchConnector) Close()  {
+func (esc *BgMetadataElasticSearchConnector) Close() {
 	close(esc.InputChannel)
 	esc.WaitGroup.Wait()
 }
@@ -248,7 +243,6 @@ func (esc *BgMetadataElasticSearchConnector) UpdateMetricMetadataSingle(metric M
 
 	res, err := esc.WriteToIndex(indexName, metric)
 	defer res.Body.Close()
-
 
 	if err != nil {
 		esc.UpdatedMetrics.WithLabelValues("failure").Inc()

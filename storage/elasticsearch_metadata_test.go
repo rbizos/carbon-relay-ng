@@ -2,6 +2,13 @@ package storage
 
 import (
 	"fmt"
+	"io/ioutil"
+	"log"
+	"math/rand"
+	"net/http"
+	"strings"
+	"testing"
+
 	"github.com/elastic/go-elasticsearch/v6"
 	"github.com/graphite-ng/carbon-relay-ng/storage/mocks"
 	"github.com/pkg/errors"
@@ -9,12 +16,6 @@ import (
 	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"io/ioutil"
-	"log"
-	"math/rand"
-	"net/http"
-	"strings"
-	"testing"
 )
 
 func TestWritesAMetricMetadata(t *testing.T) {
@@ -59,9 +60,9 @@ func getMetricValue(counterVec *prometheus.CounterVec, labels prometheus.Labels)
 
 func createMetricWithName(name string) Metric {
 	metadata := MetricMetadata{
-		aggregator: "",
+		aggregator:         "",
 		carbonXfilesfactor: "",
-		retention: "",
+		retention:          "",
 	}
 	return NewMetric(name, metadata)
 }
@@ -73,7 +74,7 @@ func createMetric() Metric {
 func createRandomMetric() Metric {
 	length := 10
 	var b strings.Builder
-	for i := 0; i < length - 1; i++ {
+	for i := 0; i < length-1; i++ {
 		b.WriteString(fmt.Sprintf("%d.", rand.Uint32()))
 	}
 	b.WriteString(fmt.Sprintf("%d", rand.Uint32()))
@@ -94,7 +95,9 @@ func WriteRandomMetrics(numMetrics int, esc *BgMetadataElasticSearchConnector) {
 func benchmarkWrites(b *testing.B, esc *BgMetadataElasticSearchConnector, numMetrics int) {
 	WriteRandomMetrics(numMetrics, esc)
 }
+
 const numMetrics = 10000
+
 var es *elasticsearch.Client = nil
 
 func BenchmarkWritesWithBulkSize100(b *testing.B) {
@@ -113,7 +116,7 @@ func BenchmarkWritesWithBulkSize100(b *testing.B) {
 func GetClient() (*elasticsearch.Client, error) {
 	if es == nil {
 		fmt.Printf("creating\n")
-		es, err := CreateElasticSearchClient("http://localhost:9200")
+		es, err := CreateElasticSearchClient("http://localhost:9200", "", "")
 		return es, err
 	}
 	fmt.Printf("cache\n")
