@@ -250,6 +250,56 @@ dimensions = [
 storageResolution = 1
 ```
 
+
+## Metadata
+
+Route only [metadata](https://github.com/criteo/biggraphite/blob/master/CASSANDRA_DESIGN.md#metadata-tables), using a bloom filter to optimize the writes  
+
+setting                     | mandatory | values      | default       | description 
+----------------------------|-----------|-------------|---------------|------------
+ShardingFactor              |     Y     |  int        | N/A           |  number of shards handling metrics
+FilterSize                  |     Y     |  uint       | N/A           |  max total number of metrics
+FaultTolerance              |     Y     |  float      | N/A           |  transparent, value between 0.0 and 1.0
+ClearInterval               |     Y     |  string     | N/A           |  frequency of filter clearing
+ClearWait                   |     Y     |  string     | N/A           |  wait time between each filter clear. defaults to clear_wait/sharding_factor
+StorageAggregationConfig    |     Y     |  string     | N/A           |  biggraphite formated aggregation config path
+StorageSchemasConfig        |     Y     |  string     | N/A           |  biggraphite formated schemas config path 
+Storage                     |     N     |  string     | ""            |  Storage backend to use either "cassandra" or "elasticsearch" 
+
+### Elasticsearch 
+
+[ElasticSearch storage backend](https://github.com/criteo/biggraphite/blob/master/ELASTICSEARCH_DESIGN.md)
+ specific configuration
+
+setting                     | mandatory | values      | default       | description 
+----------------------------|-----------|-------------|---------------|------------
+StorageServer               |     Y     |  string     | N/A           | address of ES server to use 
+BulkSize                    |     Y     |  uint       | N/A           | Maximum number of metrics metadata that can be bulk sent at once
+Username                    |     N     |  string     | ""            | let empty if no authentication
+Password                    |     N     |  string     | ""            | let empty if no authentication
+
+
+#### Example
+
+```
+[[route]]
+key = 'example_metadata'
+type = 'bg_metadata'
+    [route.bg_metadata]
+    sharding_factor = 10
+    filter_size = 1000
+    fault_tolerance = 0.0000001
+    clear_interval = "60s"
+    cache = "/tmp/carbon-relay-ng/cache"
+    storage_schemas = "storage-schemas.conf"
+    storage_aggregations = "storage-aggregation.conf"
+    storage = "elasticsearch"
+        [route.bg_metadata.elasticsearch]
+        storage_server = "http://elasticsearch:9200"
+        bulk_size = 10000
+        username = "user"
+        password = "passwd"
+```
 ## Imperatives
 
 imperatives can be used in two places:
