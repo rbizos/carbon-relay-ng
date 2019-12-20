@@ -9,11 +9,6 @@ type BgMetadataStorageConnector interface {
 type BgMetadataNoOpStorageConnector struct {
 }
 
-func NewBgMetadataNoOpStorageConnector() *BgMetadataNoOpStorageConnector {
-	var x BgMetadataNoOpStorageConnector
-	return &x
-}
-
 func (cc *BgMetadataNoOpStorageConnector) UpdateMetricMetadata(metric Metric) error {
 	return nil
 }

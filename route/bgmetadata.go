@@ -157,7 +157,7 @@ func NewBgMetadataRoute(key, prefix, sub, regex, aggregationCfg, schemasCfg stri
 		}
 
 	default:
-		m.storage = storage.NewBgMetadataNoOpStorageConnector()
+		m.storage = &storage.BgMetadataNoOpStorageConnector{}
 		m.maxConcurrentWrites = make(chan int, 1)
 	}
 
