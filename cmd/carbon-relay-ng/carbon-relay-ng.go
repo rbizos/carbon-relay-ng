@@ -19,6 +19,7 @@ import (
 	tbl "github.com/graphite-ng/carbon-relay-ng/table"
 	"github.com/graphite-ng/carbon-relay-ng/ui/web"
 	"go.uber.org/zap"
+
 	"strconv"
 	"strings"
 	"time"
@@ -140,11 +141,6 @@ func main() {
 	}
 
 	if config.Http_addr != "" {
-		port, present := os.LookupEnv("PORT_DEFAULT")
-		if present {
-			config.Http_addr = "0.0.0.0:" + port
-		}
-
 		go web.Start(config.Http_addr, config, table, *enablePprof)
 	}
 

@@ -15,9 +15,9 @@ func TestReturnsGroupWhenComplete(t *testing.T) {
 	sendElementsAndClose(c, []string{"a", "b", "c", "d"})
 	wg.Wait()
 
-	g := <- gc.groupedChannel
+	g := <-gc.groupedChannel
 	assertEqualElements(t, []string{"a", "b", "c"}, g)
-	g = <- gc.groupedChannel
+	g = <-gc.groupedChannel
 	assert.Equal(t, 1, len(g))
 	assertEqualElements(t, []string{"d"}, g)
 }
@@ -31,7 +31,7 @@ func TestReturnsSingleElementWhenClosed(t *testing.T) {
 	sendElementsAndClose(c, []string{"a"})
 	wg.Wait()
 
-	g := <- gc.groupedChannel
+	g := <-gc.groupedChannel
 	assertEqualElements(t, []string{"a"}, g)
 }
 
@@ -44,7 +44,7 @@ func TestReturnsEmptyWhenClosedImmediately(t *testing.T) {
 	sendElementsAndClose(c, []string{})
 	wg.Wait()
 
-	_, hasValue := <- gc.groupedChannel
+	_, hasValue := <-gc.groupedChannel
 	assert.False(t, hasValue)
 }
 

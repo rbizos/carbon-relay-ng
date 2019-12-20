@@ -7,9 +7,9 @@ import (
 type GroupingChannelElement interface{}
 
 type GroupingChannel struct {
-	inputChannel chan GroupingChannelElement
+	inputChannel   chan GroupingChannelElement
 	groupedChannel chan []GroupingChannelElement
-	size uint
+	size           uint
 }
 
 func NewGroupingChannel(size uint, inputChannel chan GroupingChannelElement, wg *sync.WaitGroup) *GroupingChannel {
@@ -30,7 +30,7 @@ func (gc *GroupingChannel) WriteElementsAndClear(elements *[]GroupingChannelElem
 	*elements = (*elements)[:0]
 }
 
-func (gc *GroupingChannel) Run(wg* sync.WaitGroup) {
+func (gc *GroupingChannel) Run(wg *sync.WaitGroup) {
 	defer wg.Done()
 	defer close(gc.groupedChannel)
 

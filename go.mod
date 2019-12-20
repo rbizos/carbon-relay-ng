@@ -12,7 +12,6 @@ require (
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e // indirect
 	github.com/eapache/go-resiliency v1.2.0 // indirect
 	github.com/elastic/go-elasticsearch/v6 v6.8.2
-	github.com/elastic/go-elasticsearch/v7 v7.4.1
 	github.com/elazarl/go-bindata-assetfs v1.0.0
 	github.com/frankban/quicktest v1.4.1 // indirect
 	github.com/gocql/gocql v0.0.0-20191018090344-07ace3bab0f8

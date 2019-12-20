@@ -6,9 +6,7 @@ type BgMetadataStorageConnector interface {
 	SelectDirectory(dir string) (string, error)
 }
 
-
 type BgMetadataNoOpStorageConnector struct {
-
 }
 
 func NewBgMetadataNoOpStorageConnector() *BgMetadataNoOpStorageConnector {
