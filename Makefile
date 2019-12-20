@@ -3,6 +3,7 @@ ARCH="amd64 386"
 OS="linux windows darwin"
 export GO111MODULE := on
 
+
 build:
 	CGO_ENABLED=0 go build -ldflags "-X main.Version=$(VERSION)" ./cmd/carbon-relay-ng
 
@@ -25,13 +26,10 @@ release-deps:
 release: release-deps
 	gox -os $(OS) -arch $(ARCH) -ldflags "-X main.Version=$(VERSION)" -output ".releases/{{.OS}}/{{.Arch}}/{{.Dir}}" ./cmd/carbon-relay-ng
 
-check-formating:
-	@bash -c "diff -u <(echo -n) <(gofmt -d ./)"
-	
 fmt:
 	find . -name '*.go' | grep -v '^\.\/vendor' | xargs gofmt -w -s
 
-test: check-formating
+test:
 	go test ./...
 
 docker-build:
