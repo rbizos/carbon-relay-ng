@@ -257,14 +257,14 @@ Route only [metadata](https://github.com/criteo/biggraphite/blob/master/CASSANDR
 
 setting                     | mandatory | values      | default       | description 
 ----------------------------|-----------|-------------|---------------|------------
-ShardingFactor              |     Y     |  int        | N/A           |  number of shards handling metrics
-FilterSize                  |     Y     |  uint       | N/A           |  max total number of metrics
-FaultTolerance              |     Y     |  float      | N/A           |  transparent, value between 0.0 and 1.0
-ClearInterval               |     Y     |  string     | N/A           |  frequency of filter clearing
-ClearWait                   |     Y     |  string     | N/A           |  wait time between each filter clear. defaults to clear_wait/sharding_factor
-StorageAggregationConfig    |     Y     |  string     | N/A           |  biggraphite formated aggregation config path
-StorageSchemasConfig        |     Y     |  string     | N/A           |  biggraphite formated schemas config path 
-Storage                     |     N     |  string     | ""            |  Storage backend to use either "cassandra" or "elasticsearch" 
+sharding_factor             |     Y     |  int        | N/A           |  number of shards handling metrics
+filter_size                 |     Y     |  uint       | N/A           |  max total number of metrics
+fault_tolerance             |     Y     |  float      | N/A           |  transparent, value between 0.0 and 1.0
+clear_interval              |     Y     |  string     | N/A           |  frequency of filter clearing
+clear_wait                  |     Y     |  string     | N/A           |  wait time between each filter clear. defaults to clear_wait/sharding_factor
+storage_aggregations        |     Y     |  string     | N/A           |  biggraphite formated aggregation config path
+storage_schemas             |     Y     |  string     | N/A           |  biggraphite formated schemas config path 
+storage                     |     N     |  string     | ""            |  Storage backend to use either "cassandra" or "elasticsearch" 
 
 ### Elasticsearch 
 
@@ -273,10 +273,11 @@ Storage                     |     N     |  string     | ""            |  Storage
 
 setting                     | mandatory | values      | default       | description 
 ----------------------------|-----------|-------------|---------------|------------
-StorageServer               |     Y     |  string     | N/A           | address of ES server to use 
-BulkSize                    |     Y     |  uint       | N/A           | Maximum number of metrics metadata that can be bulk sent at once
-Username                    |     N     |  string     | ""            | let empty if no authentication
-Password                    |     N     |  string     | ""            | let empty if no authentication
+storage_server              |     Y     |  string     | N/A           | address of ES server to use 
+bulk_size                   |     Y     |  uint       | N/A           | Maximum number of metrics metadata that can be bulk sent at once
+username                    |     N     |  string     | ""            | let empty if no authentication
+password                    |     N     |  string     | ""            | let empty if no authentication
+max_retry                   |     N     |  uint       | 0             | maximum number of retry on http errors, let empty if no retry
 
 
 #### Example
