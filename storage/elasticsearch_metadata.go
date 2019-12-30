@@ -61,27 +61,38 @@ const (
 type BgMetadataElasticSearchConnector struct {
 	client                  ElasticSearchClient
 	UpdatedMetrics          *prometheus.CounterVec
+	HTTPErrors              prometheus.Counter
 	WriteDurationMs         prometheus.Histogram
 	DocumentBuildDurationMs prometheus.Histogram
 	KnownIndices            map[string]bool
-	InputChannel            chan GroupingChannelElement
-	GroupingChannel         *GroupingChannel
+	BulkBuffer              []Metric
 	BulkSize                uint
-	WaitGroup               *sync.WaitGroup
+	Mux                     sync.Mutex
+	MaxRetry                uint
 }
 
 type ElasticSearchClient interface {
 	Perform(*http.Request) (*http.Response, error)
 }
 
-func NewBgMetadataElasticSearchConnector(elasticSearchClient ElasticSearchClient, registry prometheus.Registerer, bulkSize uint) *BgMetadataElasticSearchConnector {
+func NewBgMetadataElasticSearchConnector(elasticSearchClient ElasticSearchClient, registry prometheus.Registerer, bulkSize, maxRetry uint) *BgMetadataElasticSearchConnector {
 	var esc = BgMetadataElasticSearchConnector{
-		client: elasticSearchClient,
+		client:     elasticSearchClient,
+		BulkSize:   bulkSize,
+		BulkBuffer: make([]Metric, 0, bulkSize),
+		MaxRetry:   maxRetry,
+
 		UpdatedMetrics: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Namespace: namespace,
 			Name:      "updated_metrics",
 			Help:      "total number of metrics updated in ElasticSearch",
 		}, []string{"status"}),
+
+		HTTPErrors: prometheus.NewCounter(prometheus.CounterOpts{
+			Name: "http_429_responses",
+			Help: "total number of retries due to http 429 responses",
+		}),
+
 		WriteDurationMs: prometheus.NewHistogram(prometheus.HistogramOpts{
 			Namespace: namespace,
 			Name:      "write_duration_ms",
@@ -98,16 +109,6 @@ func NewBgMetadataElasticSearchConnector(elasticSearchClient ElasticSearchClient
 	_ = registry.Register(esc.DocumentBuildDurationMs)
 
 	esc.KnownIndices = map[string]bool{}
-
-	esc.InputChannel = make(chan GroupingChannelElement, bulkSize*2)
-	var wg sync.WaitGroup
-	esc.WaitGroup = &wg
-	esc.WaitGroup.Add(1)
-	esc.GroupingChannel = NewGroupingChannel(bulkSize, esc.InputChannel, esc.WaitGroup)
-
-	esc.WaitGroup.Add(1)
-	go esc.RunWriter(esc.WaitGroup)
-
 	return &esc
 }
 
@@ -140,12 +141,10 @@ func NewBgMetadataElasticSearchConnectorWithDefaults(cfg *cfg.BgMetadataESConfig
 		log.Fatalf("Could not create ElasticSearch connector: %w", err)
 	}
 
-	return NewBgMetadataElasticSearchConnector(es, prometheus.DefaultRegisterer, cfg.BulkSize)
+	return NewBgMetadataElasticSearchConnector(es, prometheus.DefaultRegisterer, cfg.BulkSize, cfg.MaxRetry)
 }
 
 func (esc *BgMetadataElasticSearchConnector) Close() {
-	close(esc.InputChannel)
-	esc.WaitGroup.Wait()
 }
 
 func (esc *BgMetadataElasticSearchConnector) createIndexAndMapping(indexName string) error {
@@ -168,55 +167,63 @@ func (esc *BgMetadataElasticSearchConnector) createIndexAndMapping(indexName str
 	return nil
 }
 
+// UpdateMetricMetadata stores the metric in a buffer, will bulkupdate when at full cap
+// threadsafe
 func (esc *BgMetadataElasticSearchConnector) UpdateMetricMetadata(metric Metric) error {
-	esc.InputChannel <- metric
-	return nil
-}
+	esc.Mux.Lock()
+	defer esc.Mux.Unlock()
 
-func (esc *BgMetadataElasticSearchConnector) RunWriter(wg *sync.WaitGroup) error {
-	defer wg.Done()
-	metrics := make([]Metric, 0)
-
-	for metricGroup := range esc.GroupingChannel.groupedChannel {
-		for _, metricChannelElement := range metricGroup {
-			metrics = append(metrics, metricChannelElement.(Metric))
-		}
-		err := esc.UpdateMetricMetadataMulti(metrics)
-		metrics = metrics[:0]
-		if err != nil {
-			return fmt.Errorf("Could not write metadata metrics group: %w", err)
-		}
+	esc.BulkBuffer = append(esc.BulkBuffer, metric)
+	if len(esc.BulkBuffer) == cap(esc.BulkBuffer) {
+		esc.sendAndClearBuffer()
 	}
-
 	return nil
 }
 
-func (esc *BgMetadataElasticSearchConnector) UpdateMetricMetadataMulti(metrics []Metric) error {
+func (esc *BgMetadataElasticSearchConnector) sendAndClearBuffer() error {
+	defer esc.clearBuffer()
 	indexName, err := esc.getIndex()
+	var errorMessage []byte
+	var statusCode int
+
 	if err != nil {
-		esc.UpdatedMetrics.WithLabelValues("failure").Add(float64(len(metrics)))
+		esc.UpdatedMetrics.WithLabelValues("failure").Add(float64(len(esc.BulkBuffer)))
 		return fmt.Errorf("Could not get index: %w", err)
 	}
 
-	res, err := esc.WriteToIndexMulti(indexName, metrics)
-	defer res.Body.Close()
+	for attempt := uint(0); attempt <= esc.MaxRetry; attempt++ {
+		res, err := esc.bulkUpdate(indexName, esc.BulkBuffer)
 
-	if err != nil {
-		esc.UpdatedMetrics.WithLabelValues("failure").Add(float64(len(metrics)))
-		return fmt.Errorf("Could not write to index: %w", err)
+		if err != nil {
+			esc.UpdatedMetrics.WithLabelValues("failure").Add(float64(len(esc.BulkBuffer)))
+			return fmt.Errorf("Could not write to index: %w", err)
+		}
+
+		if !res.IsError() {
+			esc.UpdatedMetrics.WithLabelValues("success").Add(float64(len(esc.BulkBuffer)))
+			res.Body.Close()
+			return nil
+
+		} else {
+			esc.HTTPErrors.Inc()
+			statusCode = res.StatusCode
+			errorMessage, _ = ioutil.ReadAll(res.Body)
+			continue
+
+		}
 	}
-	if res.StatusCode != http.StatusOK {
-		esc.UpdatedMetrics.WithLabelValues("failure").Add(float64(len(metrics)))
-		errorMessage, _ := ioutil.ReadAll(res.Body)
-		return fmt.Errorf("Could not write to index (status %d, error: %s)", res.StatusCode, errorMessage)
-	}
 
-	esc.UpdatedMetrics.WithLabelValues("success").Add(float64(len(metrics)))
+	esc.UpdatedMetrics.WithLabelValues("failure").Add(float64(len(esc.BulkBuffer)))
+	return fmt.Errorf("Could not write to index (status %d, error: %s)", statusCode, errorMessage)
 
+}
+
+func (esc *BgMetadataElasticSearchConnector) clearBuffer() error {
+	esc.BulkBuffer = esc.BulkBuffer[:0]
 	return nil
 }
 
-func (esc *BgMetadataElasticSearchConnector) WriteToIndexMulti(indexName string, metrics []Metric) (*esapi.Response, error) {
+func (esc *BgMetadataElasticSearchConnector) bulkUpdate(indexName string, metrics []Metric) (*esapi.Response, error) {
 	timeBeforeBuild := time.Now()
 	doc := BuildElasticSearchDocumentMulti(indexName, metrics)
 	esc.DocumentBuildDurationMs.Observe(float64(time.Since(timeBeforeBuild).Milliseconds()))
@@ -232,42 +239,6 @@ func (esc *BgMetadataElasticSearchConnector) WriteToIndexMulti(indexName string,
 	esc.WriteDurationMs.Observe(float64(time.Since(timeBeforeWrite).Milliseconds()))
 
 	return res, err
-}
-
-func (esc *BgMetadataElasticSearchConnector) UpdateMetricMetadataSingle(metric Metric) error {
-	indexName, err := esc.getIndex()
-	if err != nil {
-		esc.UpdatedMetrics.WithLabelValues("failure").Inc()
-		return fmt.Errorf("Could not get index for metric %s: %w", metric.name, err)
-	}
-
-	res, err := esc.WriteToIndex(indexName, metric)
-	defer res.Body.Close()
-
-	if err != nil {
-		esc.UpdatedMetrics.WithLabelValues("failure").Inc()
-		log.Printf("Error getting response: %s", err) // TODO: how should this error be handled?
-		return err
-	}
-	if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusCreated {
-		esc.UpdatedMetrics.WithLabelValues("failure").Inc()
-		errorMessage, _ := ioutil.ReadAll(res.Body)
-		err = fmt.Errorf("Insertion failed in ElasticSearch (StatusCode: %d): %s", res.StatusCode, string(errorMessage))
-		log.Printf("Error getting response: %s", err) // TODO: how should this error be handled?
-		return err
-	}
-	esc.UpdatedMetrics.WithLabelValues("success").Inc()
-
-	return nil
-}
-
-func (esc *BgMetadataElasticSearchConnector) WriteToIndex(indexName string, metric Metric) (*esapi.Response, error) {
-	req := esapi.IndexRequest{
-		Index:      indexName,
-		Body:       strings.NewReader(BuildElasticSearchDocument(metric)),
-		DocumentID: metric.id,
-	}
-	return req.Do(context.Background(), esc.client)
 }
 
 func (esc *BgMetadataElasticSearchConnector) getIndex() (string, error) {
