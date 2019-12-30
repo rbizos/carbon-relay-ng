@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -61,7 +62,7 @@ const (
 type BgMetadataElasticSearchConnector struct {
 	client                  ElasticSearchClient
 	UpdatedMetrics          *prometheus.CounterVec
-	HTTPErrors              prometheus.Counter
+	HTTPErrors              *prometheus.CounterVec
 	WriteDurationMs         prometheus.Histogram
 	DocumentBuildDurationMs prometheus.Histogram
 	KnownIndices            map[string]bool
@@ -88,10 +89,11 @@ func NewBgMetadataElasticSearchConnector(elasticSearchClient ElasticSearchClient
 			Help:      "total number of metrics updated in ElasticSearch",
 		}, []string{"status"}),
 
-		HTTPErrors: prometheus.NewCounter(prometheus.CounterOpts{
-			Name: "http_429_responses",
-			Help: "total number of retries due to http 429 responses",
-		}),
+		HTTPErrors: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Namespace: namespace,
+			Name:      "http_errors",
+			Help:      "total number of http errors encountered partitionned by status code",
+		}, []string{"code"}),
 
 		WriteDurationMs: prometheus.NewHistogram(prometheus.HistogramOpts{
 			Namespace: namespace,
@@ -205,11 +207,10 @@ func (esc *BgMetadataElasticSearchConnector) sendAndClearBuffer() error {
 			return nil
 
 		} else {
-			esc.HTTPErrors.Inc()
+			esc.HTTPErrors.WithLabelValues(strconv.Itoa(res.StatusCode)).Inc()
 			statusCode = res.StatusCode
 			errorMessage, _ = ioutil.ReadAll(res.Body)
-			continue
-
+			res.Body.Close()
 		}
 	}
 

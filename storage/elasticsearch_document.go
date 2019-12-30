@@ -8,7 +8,7 @@ import (
 )
 
 func BuildElasticSearchDocument(metric Metric) string {
-	var components = strings.Split(metric.name, ".")
+	var components = strings.Split(metric.name, ".") // TODO use slices to improve perf
 	var b strings.Builder
 
 	now := time.Now().UTC().Format("2006-01-02T15:04:05.000000")
@@ -26,6 +26,12 @@ func BuildElasticSearchDocument(metric Metric) string {
 		b.WriteString(",")
 		b.WriteString(fmt.Sprintf(`"p%d":"%s"`, i, component))
 	}
+	tagsSerialized, err := json.Marshal(metric.tags)
+	if err == nil {
+
+		b.WriteString(fmt.Sprintf(`,"tags": %s`, tagsSerialized))
+	}
+
 	b.WriteString(`}`)
 	return b.String()
 }
