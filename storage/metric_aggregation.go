@@ -6,12 +6,14 @@ import (
 	"gopkg.in/ini.v1"
 )
 
+
 type StorageAggregation struct {
 	ID                string
 	pattern           string
 	xFilesFactor      string
 	aggregationMethod string
 	patternRegex      *regexp.Regexp
+
 }
 
 func NewStorageAggregations(storageAggregationConf string) ([]StorageAggregation, error) {
@@ -23,6 +25,7 @@ func NewStorageAggregations(storageAggregationConf string) ([]StorageAggregation
 	for _, section := range cfg.Sections()[1:] { // first element is empty default value
 		pattern := section.KeysHash()["PATTERN"]
 		patternRegex, _ := regexp.Compile(pattern)
+
 		aggr = append(
 			aggr,
 			StorageAggregation{
@@ -31,6 +34,7 @@ func NewStorageAggregations(storageAggregationConf string) ([]StorageAggregation
 				xFilesFactor:      section.KeysHash()["XFILESFACTOR"],
 				aggregationMethod: section.KeysHash()["AGGREGATIONMETHOD"],
 				patternRegex:      patternRegex,
+
 			},
 		)
 	}

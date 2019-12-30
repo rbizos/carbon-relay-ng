@@ -50,6 +50,7 @@ func NewCassandraMetadata() *CassandraConnector {
 	if err != nil {
 		fmt.Println(err.Error())
 		return &CassandraConnector{}
+
 	}
 	cc := CassandraConnector{
 		session: session,

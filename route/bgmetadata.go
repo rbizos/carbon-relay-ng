@@ -58,6 +58,7 @@ type BgMetadata struct {
 	storageAggregations []storage.StorageAggregation
 	storage             storage.BgMetadataStorageConnector
 	maxConcurrentWrites chan int
+
 }
 
 // NewBloomFilterConfig creates a new BloomFilterConfig
@@ -83,6 +84,7 @@ func NewBloomFilterConfig(n uint, p float64, shardingFactor int, cache string, c
 // NewBgMetadataRoute creates BgMetadata, starts sharding and filtering incoming metrics.
 // additionnalCfg should be nil or *cfg.BgMetadataESConfig if elasticsearch
 func NewBgMetadataRoute(key, prefix, sub, regex, aggregationCfg, schemasCfg string, bfCfg BloomFilterConfig, storageName string, additionnalCfg interface{}) (*BgMetadata, error) {
+
 	// to make value assignments easier
 	var err error
 
@@ -167,6 +169,9 @@ func NewBgMetadataRoute(key, prefix, sub, regex, aggregationCfg, schemasCfg stri
 		Help:      "number of pending storage write requests",
 	}, func() float64 { return float64(len(m.maxConcurrentWrites)) })
 
+	go m.createMetadataDirectories()
+
+	m.cassandra = storage.NewCassandraMetadata()
 	go m.createMetadataDirectories()
 
 	// matcher required to initialise route.Config for routing table, othewise it will panic
@@ -361,6 +366,7 @@ func (m *BgMetadata) Dispatch(dp encoding.Datapoint) {
 			m.storage.UpdateMetricMetadata(metric)
 			<-m.maxConcurrentWrites
 		}()
+
 	} else {
 		// don't output metrics already in the filter
 		m.mm.FilteredMetrics.Inc()

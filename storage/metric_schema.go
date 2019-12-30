@@ -12,6 +12,7 @@ type StorageSchema struct {
 	pattern      string
 	retentions   string
 	patternRegex *regexp.Regexp
+
 }
 
 func NewStorageSchemas(storageSchemasConf string) ([]StorageSchema, error) {
@@ -40,6 +41,7 @@ func NewStorageSchemas(storageSchemasConf string) ([]StorageSchema, error) {
 				pattern:      pattern,
 				retentions:   retentions,
 				patternRegex: patternRegex,
+
 			},
 		)
 	}

@@ -40,6 +40,7 @@ func testBgMetadata(t *testing.T) *BgMetadata {
 	)
 	bfc := testBloomFilterConfig()
 	m, _ := NewBgMetadataRoute(key, prefix, sub, regex, agg, sch, bfc, "", nil)
+
 	m.ctx, m.cancel = context.WithCancel(context.Background())
 	return m
 }

@@ -814,6 +814,7 @@ func (table *Table) InitRoutes(config cfg.Config, meta toml.MetaData) error {
 				return fmt.Errorf("error adding route '%s': %s", routeConfig.Key, err)
 			}
 			route, err := route.NewBgMetadataRoute(routeConfig.Key, routeConfig.Prefix, routeConfig.Substr, routeConfig.Regex, bgMetadataCfg.StorageAggregationConfig, bgMetadataCfg.StorageSchemasConfig, bloomFilterConfig, bgMetadataCfg.Storage, additionnalCfg)
+
 			if err != nil {
 				return fmt.Errorf("error adding route '%s': %s", routeConfig.Key, err)
 			}

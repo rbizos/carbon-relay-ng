@@ -142,6 +142,7 @@ type BgMetadataESConfig struct {
 	Username      string `toml:"username,omitempty"`
 	Password      string `toml:"password,omitempty"`
 	MaxRetry      uint   `toml:"max_retry,omitempty"`
+
 }
 
 type Rewriter struct {

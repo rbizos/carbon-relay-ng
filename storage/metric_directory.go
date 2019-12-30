@@ -41,11 +41,13 @@ func (md *MetricDirectory) generateParentDirectories() []MetricDirectory {
 
 func (md *MetricDirectory) UpdateDirectories(storageConnector BgMetadataStorageConnector) error {
 	entry, err := storageConnector.SelectDirectory(md.name)
+
 	if err != nil {
 		if entry == "" {
 			parentDirectories := md.generateParentDirectories()
 			for _, pd := range parentDirectories {
 				err = storageConnector.InsertDirectory(pd)
+
 				if err != nil {
 					fmt.Println(err.Error())
 				}

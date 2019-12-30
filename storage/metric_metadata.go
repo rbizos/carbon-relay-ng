@@ -116,6 +116,7 @@ func matchMetric(name string, aggrs []StorageAggregation, schemas []StorageSchem
 	for _, sc := range schemas {
 		// matched, err := regexp.MatchString(sc.pattern, name)
 		matched := sc.patternRegex.MatchString(name)
+
 		if matched {
 			matchedSc = sc
 			// stop on first match
