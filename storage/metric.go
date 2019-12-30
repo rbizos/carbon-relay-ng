@@ -6,6 +6,7 @@ import (
 
 	"github.com/gocql/gocql"
 	"github.com/google/uuid"
+	"github.com/graphite-ng/carbon-relay-ng/encoding"
 )
 
 type Metric struct {
@@ -15,15 +16,17 @@ type Metric struct {
 	updatedOn gocql.UUID
 	readOn    time.Time
 	config    map[string]string
+	tags      encoding.Tags
 }
 
-func NewMetric(name string, metadata MetricMetadata) Metric {
+func NewMetric(name string, metadata MetricMetadata, tags encoding.Tags) Metric {
 	// TODO Add return error and handle it
 	m := Metric{
 		name:      name,
 		createdOn: gocql.TimeUUID(),
 		updatedOn: gocql.TimeUUID(),
 		config:    metadata.Map(),
+		tags:      tags,
 	}
 	m.id, _ = m.metricUUID()
 	return m

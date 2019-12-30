@@ -151,7 +151,7 @@ func NewBgMetadataRoute(key, prefix, sub, regex, aggregationCfg, schemasCfg stri
 	case "elasticsearch":
 		if v, ok := additionnalCfg.(*cfg.BgMetadataESConfig); ok == true {
 			m.storage = storage.NewBgMetadataElasticSearchConnectorWithDefaults(v)
-			m.maxConcurrentWrites = make(chan int, 10)
+			m.maxConcurrentWrites = make(chan int, 1)
 		} else {
 			return &m, fmt.Errorf("missing elasticsearch configuration")
 		}
@@ -353,7 +353,7 @@ func (m *BgMetadata) Dispatch(dp encoding.Datapoint) {
 		shard.filter.AddString(dp.Name)
 		m.mm.AddedMetrics.Inc()
 		metricMetadata := storage.NewMetricMetadata(dp.Name, m.storageSchemas, m.storageAggregations)
-		metric := storage.NewMetric(dp.Name, metricMetadata)
+		metric := storage.NewMetric(dp.Name, metricMetadata, dp.Tags)
 		// add metric name to directory channel for dirs to be created if needed in a separate goroutine
 		m.metricDirectories <- dp.Name
 		m.maxConcurrentWrites <- 1

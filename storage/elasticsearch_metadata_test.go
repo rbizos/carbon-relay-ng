@@ -79,12 +79,12 @@ func TestHandlesFailureWhenWritingAMetricMetadata(t *testing.T) {
 func TestHandlesRetry(t *testing.T) {
 	mockElasticSearchClient := &mocks.ElasticSearchClient{}
 	registry := prometheus.NewRegistry()
-	esc := NewBgMetadataElasticSearchConnector(mockElasticSearchClient, registry, 1, 1)
+	esc := NewBgMetadataElasticSearchConnector(mockElasticSearchClient, registry, 1, 2)
 
 	response := http.Response{Body: ioutil.NopCloser(strings.NewReader("<response>")), StatusCode: 200}
 	badResponse := http.Response{Body: ioutil.NopCloser(strings.NewReader("<response>")), StatusCode: 400}
 	mockElasticSearchClient.On("Perform", mock.Anything).Return(&response, nil).Twice() // getIndex
-	mockElasticSearchClient.On("Perform", mock.Anything).Return(&badResponse, nil).Once()
+	mockElasticSearchClient.On("Perform", mock.Anything).Return(&badResponse, nil).Twice()
 	mockElasticSearchClient.On("Perform", mock.Anything).Return(&response, nil).Once()
 
 	err := esc.UpdateMetricMetadata(createMetric())
@@ -92,12 +92,11 @@ func TestHandlesRetry(t *testing.T) {
 
 	failures := getMetricValue(esc.UpdatedMetrics, map[string]string{"status": "failure"})
 	successes := getMetricValue(esc.UpdatedMetrics, map[string]string{"status": "success"})
-	metric := &dto.Metric{}
+	httpErrors := getMetricValue(esc.HTTPErrors, map[string]string{"code": "400"})
 
-	_ = esc.HTTPErrors.Write(metric)
 	assert.Equal(t, 0.0, failures)
 	assert.Equal(t, 1.0, successes)
-	assert.Equal(t, 1.0, *metric.Counter.Value)
+	assert.Equal(t, 2.0, httpErrors)
 	mockElasticSearchClient.AssertExpectations(t)
 }
 
@@ -119,7 +118,7 @@ func createMetricWithName(name string) Metric {
 		carbonXfilesfactor: "",
 		retention:          "",
 	}
-	return NewMetric(name, metadata)
+	return NewMetric(name, metadata, nil)
 }
 
 func createMetric() Metric {

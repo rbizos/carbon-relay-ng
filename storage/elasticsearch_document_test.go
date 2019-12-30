@@ -2,15 +2,19 @@ package storage
 
 import (
 	"encoding/json"
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/graphite-ng/carbon-relay-ng/encoding"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestDocumentIsCorrect(t *testing.T) {
 	metadata := MetricMetadata{aggregator: "<a>", carbonXfilesfactor: "<c>", retention: "<r>"}
-	metric := NewMetric("a.b.c", metadata)
+	tags := make(encoding.Tags)
+	tags["app"] = "test"
+	tags["pool"] = "loop"
+	metric := NewMetric("a.b.c", metadata, tags)
 	doc := BuildElasticSearchDocument(metric)
-
 	var jsonMap map[string]interface{}
 	_ = json.Unmarshal([]byte(doc), &jsonMap)
 
@@ -19,6 +23,9 @@ func TestDocumentIsCorrect(t *testing.T) {
 	assert.Equal(t, jsonMap["p1"], "b")
 	assert.Equal(t, jsonMap["p2"], "c")
 	assert.Equal(t, jsonMap["depth"], "2")
+	readTags, _ := jsonMap["tags"].(map[string]interface{})
+	assert.Equal(t, readTags["app"], "test")
+	assert.Equal(t, readTags["pool"], "loop")
 	configMap := jsonMap["config"].(map[string]interface{})
 	assert.Equal(t, configMap["carbon_xfilesfactor"], "<c>")
 }
