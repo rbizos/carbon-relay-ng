@@ -20,5 +20,5 @@ type = 'kafka'
     [route.kafka]
     codec = "plain"
     topic = "metrics"
-    brokers = ["blabla:9092"]
-
+    brokers = ["kafka:29092"]
+#    brokers = ["localhost:9092"]

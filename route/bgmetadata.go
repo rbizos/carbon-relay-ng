@@ -13,8 +13,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/graphite-ng/carbon-relay-ng/cfg"
 	"github.com/graphite-ng/carbon-relay-ng/encoding"
 	"github.com/graphite-ng/carbon-relay-ng/matcher"
 	"github.com/graphite-ng/carbon-relay-ng/metrics"
@@ -49,10 +53,11 @@ type BgMetadata struct {
 	wg                  sync.WaitGroup
 	bfCfg               BloomFilterConfig
 	mm                  metrics.BgMetadataMetrics
-	cassandra           storage.CassandraConnector
 	metricDirectories   chan string
 	storageSchemas      []storage.StorageSchema
 	storageAggregations []storage.StorageAggregation
+	storage             storage.BgMetadataStorageConnector
+	maxConcurrentWrites chan int
 }
 
 // NewBloomFilterConfig creates a new BloomFilterConfig
@@ -76,7 +81,8 @@ func NewBloomFilterConfig(n uint, p float64, shardingFactor int, cache string, c
 }
 
 // NewBgMetadataRoute creates BgMetadata, starts sharding and filtering incoming metrics.
-func NewBgMetadataRoute(key, prefix, sub, regex, aggregationCfg, schemasCfg string, bfCfg BloomFilterConfig) (*BgMetadata, error) {
+// additionnalCfg should be nil or *cfg.BgMetadataESConfig if elasticsearch
+func NewBgMetadataRoute(key, prefix, sub, regex, aggregationCfg, schemasCfg string, bfCfg BloomFilterConfig, storageName string, additionnalCfg interface{}) (*BgMetadata, error) {
 	// to make value assignments easier
 	var err error
 
@@ -138,8 +144,29 @@ func NewBgMetadataRoute(key, prefix, sub, regex, aggregationCfg, schemasCfg stri
 	m.rm = metrics.NewRouteMetrics(key, "bg_metadata", nil)
 
 	go m.clearBloomFilter()
+	switch storageName {
+	case "cassandra":
+		m.storage = storage.NewCassandraMetadata()
+		m.maxConcurrentWrites = make(chan int, 1)
+	case "elasticsearch":
+		if v, ok := additionnalCfg.(*cfg.BgMetadataESConfig); ok == true {
+			m.storage = storage.NewBgMetadataElasticSearchConnectorWithDefaults(v)
+			m.maxConcurrentWrites = make(chan int, 1)
+		} else {
+			return &m, fmt.Errorf("missing elasticsearch configuration")
+		}
 
-	m.cassandra = storage.NewCassandraMetadata()
+	default:
+		m.storage = &storage.BgMetadataNoOpStorageConnector{}
+		m.maxConcurrentWrites = make(chan int, 1)
+	}
+
+	promauto.NewGaugeFunc(prometheus.GaugeOpts{
+		Namespace: "bgmetadata",
+		Name:      "pending_storage_writes",
+		Help:      "number of pending storage write requests",
+	}, func() float64 { return float64(len(m.maxConcurrentWrites)) })
+
 	go m.createMetadataDirectories()
 
 	// matcher required to initialise route.Config for routing table, othewise it will panic
@@ -297,7 +324,7 @@ func (m *BgMetadata) createMetadataDirectories() error {
 			if !dirFilter.TestString(dir) {
 				dirFilter.AddString(dir)
 				md := storage.NewMetricDirectory(dir)
-				md.UpdateDirectories(m.cassandra)
+				md.UpdateDirectories(m.storage)
 			}
 		}
 	}
@@ -326,10 +353,14 @@ func (m *BgMetadata) Dispatch(dp encoding.Datapoint) {
 		shard.filter.AddString(dp.Name)
 		m.mm.AddedMetrics.Inc()
 		metricMetadata := storage.NewMetricMetadata(dp.Name, m.storageSchemas, m.storageAggregations)
-		metric := storage.NewMetric(dp.Name, metricMetadata)
+		metric := storage.NewMetric(dp.Name, metricMetadata, dp.Tags)
 		// add metric name to directory channel for dirs to be created if needed in a separate goroutine
 		m.metricDirectories <- dp.Name
-		m.cassandra.UpdateMetricMetadata(metric)
+		m.maxConcurrentWrites <- 1
+		go func() {
+			m.storage.UpdateMetricMetadata(metric)
+			<-m.maxConcurrentWrites
+		}()
 	} else {
 		// don't output metrics already in the filter
 		m.mm.FilteredMetrics.Inc()

@@ -2,7 +2,6 @@ package storage
 
 import (
 	"fmt"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -106,10 +105,8 @@ func matchMetric(name string, aggrs []StorageAggregation, schemas []StorageSchem
 	matchedAg := StorageAggregation{}
 	matchedSc := StorageSchema{}
 	for _, ag := range aggrs {
-		matched, err := regexp.MatchString(ag.pattern, name)
-		if err != nil {
-			// handle this
-		}
+		// matched, err := regexp.MatchString(ag.pattern, name)
+		matched := ag.patternRegex.MatchString(name)
 		if matched {
 			matchedAg = ag
 			// stop on first match
@@ -117,10 +114,8 @@ func matchMetric(name string, aggrs []StorageAggregation, schemas []StorageSchem
 		}
 	}
 	for _, sc := range schemas {
-		matched, err := regexp.MatchString(sc.pattern, name)
-		if err != nil {
-			// handle this
-		}
+		// matched, err := regexp.MatchString(sc.pattern, name)
+		matched := sc.patternRegex.MatchString(name)
 		if matched {
 			matchedSc = sc
 			// stop on first match
