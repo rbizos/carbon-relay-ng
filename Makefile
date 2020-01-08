@@ -41,10 +41,11 @@ test: check-formating
 
 .start-es:
 	$(DOCKER_COMPOSE_CMD) up -d elasticsearch
-	@sleep 10
 
 .start-kafka:
 	$(DOCKER_COMPOSE_CMD) up -d zookeeper kafka
+	sleep 10
+	$(DOCKER_COMPOSE_CMD) exec kafka kafka-topics --create --zookeeper zookeeper:2181 --replication-factor 1 --partitions 5 --topic metrics
 
 
 docker-start: docker-build .start-es .start-kafka
