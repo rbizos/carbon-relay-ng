@@ -23,9 +23,7 @@ func TestDocumentIsCorrect(t *testing.T) {
 	assert.Equal(t, jsonMap["p1"], "b")
 	assert.Equal(t, jsonMap["p2"], "c")
 	assert.Equal(t, jsonMap["depth"], "2")
-	readTags, _ := jsonMap["tags"].(map[string]interface{})
-	assert.Equal(t, readTags["app"], "test")
-	assert.Equal(t, readTags["pool"], "loop")
+
 	configMap := jsonMap["config"].(map[string]interface{})
 	assert.Equal(t, configMap["carbon_xfilesfactor"], "<c>")
 }

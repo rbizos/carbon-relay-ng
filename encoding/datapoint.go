@@ -33,14 +33,14 @@ func (dp Datapoint) FullName() string {
 	if len(dp.Tags) > 0 {
 		size := 0
 		tags := make([]string, 0, len(dp.Tags))
-		for tag, val := range (dp.Tags) {
+		for tag, val := range dp.Tags {
 			tags = append(tags, tag)
 			size += len(tag) + len(val) + 2 // 2 for the `;` and `=`
 		}
 		sort.Strings(tags)
 		buffer := make([]byte, size)
 		pos := 0
-		for i := range(tags) {
+		for i := range tags {
 			pos += copy(buffer[pos:], ";")
 			pos += copy(buffer[pos:], tags[i])
 			pos += copy(buffer[pos:], "=")
@@ -48,7 +48,7 @@ func (dp Datapoint) FullName() string {
 		}
 
 		return fmt.Sprintf("%s%s", dp.Name, buffer)
-	}else {
+	} else {
 		return dp.Name
 	}
 
