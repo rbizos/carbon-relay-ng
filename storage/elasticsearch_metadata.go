@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -15,13 +16,15 @@ import (
 	"github.com/elastic/go-elasticsearch/v6/esapi"
 	"github.com/graphite-ng/carbon-relay-ng/cfg"
 	"github.com/prometheus/client_golang/prometheus"
+	"go.uber.org/zap"
 )
 
 const (
 	namespace                            = "elasticsearch"
 	default_metrics_metadata_index       = "biggraphite_metrics"
 	metrics_metadata_index_suffix_format = "_2006-01-02"
-	mapping                              = `
+	directories_index_suffix             = "_directories"
+	metricsMapping                       = `
 {
 "_doc": {
 "properties": {
@@ -56,40 +59,78 @@ const (
 	}
 }
 `
+	dirMapping = `
+{
+"_doc": {
+"properties": {
+            "depth": { 
+                "type": "long"
+            },
+
+            "name": {
+                "type": "keyword",
+                "ignore_above": 1024
+            },
+            "uuid": {
+                "type": "keyword"
+            },
+            "parent": {
+                "type": "keyword"
+            }
+        },
+			"dynamic_templates": [
+            {
+                "strings_as_keywords": {
+                    "match": "p*",
+                    "match_mapping_type": "string",
+                    "mapping": {
+                        "type": "keyword",
+                        "ignore_above": 256,
+                        "ignore_malformed": true
+                    }
+                }
+            }
+        ]
+	}
+}
+`
+
 	documentType = "_doc"
 )
 
 type BgMetadataElasticSearchConnector struct {
 	client                  ElasticSearchClient
-	UpdatedMetrics          *prometheus.CounterVec
+	UpdatedDocuments        *prometheus.CounterVec // TODO split into updated metrics and updated directories
 	HTTPErrors              *prometheus.CounterVec
 	WriteDurationMs         prometheus.Histogram
 	DocumentBuildDurationMs prometheus.Histogram
 	KnownIndices            map[string]bool
-	BulkBuffer              []Metric
+	BulkBuffer              []ElasticSearchDocument
 	BulkSize                uint
 	Mux                     sync.Mutex
 	MaxRetry                uint
-	IndexName               string
+	IndexName, currentIndex string
+	logger                  *zap.Logger
 }
 
 type ElasticSearchClient interface {
 	Perform(*http.Request) (*http.Response, error)
 }
 
-func NewBgMetadataElasticSearchConnector(elasticSearchClient ElasticSearchClient, registry prometheus.Registerer, bulkSize, maxRetry uint, indexName string) *BgMetadataElasticSearchConnector {
+// NewBgMetadataElasticSearchConnector : contructor for BgMetadataElasticSearchConnector
+func newBgMetadataElasticSearchConnector(elasticSearchClient ElasticSearchClient, registry prometheus.Registerer, bulkSize, maxRetry uint, indexName string) *BgMetadataElasticSearchConnector {
 	var esc = BgMetadataElasticSearchConnector{
 		client:     elasticSearchClient,
 		BulkSize:   bulkSize,
-		BulkBuffer: make([]Metric, 0, bulkSize),
+		BulkBuffer: make([]ElasticSearchDocument, 0, bulkSize),
 		MaxRetry:   maxRetry,
 		IndexName:  indexName,
 
-		UpdatedMetrics: prometheus.NewCounterVec(prometheus.CounterOpts{
+		UpdatedDocuments: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Namespace: namespace,
-			Name:      "updated_metrics",
-			Help:      "total number of metrics updated in ElasticSearch",
-		}, []string{"status"}),
+			Name:      "updated_documents",
+			Help:      "total number of documents updated in ElasticSearch partitionned between metrics and directories",
+		}, []string{"status", "type"}),
 
 		HTTPErrors: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Namespace: namespace,
@@ -100,15 +141,16 @@ func NewBgMetadataElasticSearchConnector(elasticSearchClient ElasticSearchClient
 		WriteDurationMs: prometheus.NewHistogram(prometheus.HistogramOpts{
 			Namespace: namespace,
 			Name:      "write_duration_ms",
-			Help:      "time spent writing to ElasticSearch",
+			Help:      "time spent writing to ElasticSearch based on `took` field of response ",
 			Buckets:   []float64{250, 500, 750, 1000, 1500, 2000, 5000, 10000}}),
 		DocumentBuildDurationMs: prometheus.NewHistogram(prometheus.HistogramOpts{
 			Namespace: namespace,
 			Name:      "document_build_duration_ms",
 			Help:      "time spent building an ElasticSearch document",
 			Buckets:   []float64{1, 5, 10, 50, 100, 250, 500, 750, 1000, 2000}}),
+		logger: zap.L(),
 	}
-	_ = registry.Register(esc.UpdatedMetrics)
+	_ = registry.Register(esc.UpdatedDocuments)
 	_ = registry.Register(esc.WriteDurationMs)
 	_ = registry.Register(esc.DocumentBuildDurationMs)
 	if esc.IndexName == "" {
@@ -119,7 +161,7 @@ func NewBgMetadataElasticSearchConnector(elasticSearchClient ElasticSearchClient
 	return &esc
 }
 
-func CreateElasticSearchClient(server, username, password string) (*elasticsearch.Client, error) {
+func createElasticSearchClient(server, username, password string) (*elasticsearch.Client, error) {
 	cfg := elasticsearch.Config{
 		Addresses: []string{
 			server,
@@ -141,46 +183,53 @@ func CreateElasticSearchClient(server, username, password string) (*elasticsearc
 	return es, err
 }
 
+// NewBgMetadataElasticSearchConnectorWithDefaults is the public contructor of BgMetadataElasticSearchConnector
 func NewBgMetadataElasticSearchConnectorWithDefaults(cfg *cfg.BgMetadataESConfig) *BgMetadataElasticSearchConnector {
-	es, err := CreateElasticSearchClient(cfg.StorageServer, cfg.Username, cfg.Password)
+	es, err := createElasticSearchClient(cfg.StorageServer, cfg.Username, cfg.Password)
 
 	if err != nil {
 		log.Fatalf("Could not create ElasticSearch connector: %w", err)
 	}
 
-	return NewBgMetadataElasticSearchConnector(es, prometheus.DefaultRegisterer, cfg.BulkSize, cfg.MaxRetry, cfg.IndexName)
+	return newBgMetadataElasticSearchConnector(es, prometheus.DefaultRegisterer, cfg.BulkSize, cfg.MaxRetry, cfg.IndexName)
 }
 
 func (esc *BgMetadataElasticSearchConnector) Close() {
 }
 
-func (esc *BgMetadataElasticSearchConnector) createIndexAndMapping(indexName string) error {
-	indexCreateRequest := esapi.IndicesCreateRequest{Index: indexName}
-	res, err := indexCreateRequest.Do(context.Background(), esc.client)
+func (esc *BgMetadataElasticSearchConnector) createIndicesAndMapping(metricIndexName, directoryIndexName string) error {
+	indices := []struct{ name, mapping string }{{metricIndexName, metricsMapping}, {directoryIndexName, dirMapping}}
+	for _, index := range indices {
+		indexCreateRequest := esapi.IndicesCreateRequest{Index: index.name}
+		res, err := indexCreateRequest.Do(context.Background(), esc.client)
 
-	// extract TODO error deserialize
-	r := strings.NewReader(mapping)
-	request := esapi.IndicesPutMappingRequest{Index: []string{indexName}, Body: r, DocumentType: documentType}
-	res, err = request.Do(context.Background(), esc.client)
+		// extract TODO error deserialize
+		r := strings.NewReader(index.mapping)
+		request := esapi.IndicesPutMappingRequest{Index: []string{index.name}, Body: r, DocumentType: documentType}
+		res, err = request.Do(context.Background(), esc.client)
 
-	if err != nil {
-		return fmt.Errorf("Could not set ElasticSearch mapping: %w", err)
+		if err != nil {
+			return fmt.Errorf("Could not set ElasticSearch mapping: %w", err)
+		}
+		if res.StatusCode != http.StatusOK {
+			errorMessage, _ := ioutil.ReadAll(res.Body)
+			return fmt.Errorf("Could not set ElasticSearch mapping (status %d, error: %s)", res.StatusCode, errorMessage)
+		}
 	}
-	if res.StatusCode != http.StatusOK {
-		errorMessage, _ := ioutil.ReadAll(res.Body)
-		return fmt.Errorf("Could not set ElasticSearch mapping (status %d, error: %s)", res.StatusCode, errorMessage)
-	}
-
 	return nil
 }
 
 // UpdateMetricMetadata stores the metric in a buffer, will bulkupdate when at full cap
 // threadsafe
-func (esc *BgMetadataElasticSearchConnector) UpdateMetricMetadata(metric Metric) error {
+func (esc *BgMetadataElasticSearchConnector) UpdateMetricMetadata(metric *Metric) error {
+	return esc.addDocumentToBuff(metric)
+}
+
+func (esc *BgMetadataElasticSearchConnector) addDocumentToBuff(doc ElasticSearchDocument) error {
 	esc.Mux.Lock()
 	defer esc.Mux.Unlock()
 
-	esc.BulkBuffer = append(esc.BulkBuffer, metric)
+	esc.BulkBuffer = append(esc.BulkBuffer, doc)
 	if len(esc.BulkBuffer) == cap(esc.BulkBuffer) {
 		esc.sendAndClearBuffer()
 	}
@@ -189,25 +238,30 @@ func (esc *BgMetadataElasticSearchConnector) UpdateMetricMetadata(metric Metric)
 
 func (esc *BgMetadataElasticSearchConnector) sendAndClearBuffer() error {
 	defer esc.clearBuffer()
-	indexName, err := esc.getIndex()
+	metricIndex, directoryIndex, err := esc.getIndices()
 	var errorMessage []byte
 	var statusCode int
 
 	if err != nil {
-		esc.UpdatedMetrics.WithLabelValues("failure").Add(float64(len(esc.BulkBuffer)))
+		esc.UpdatedDocuments.WithLabelValues("failure").Add(float64(len(esc.BulkBuffer)))
 		return fmt.Errorf("Could not get index: %w", err)
 	}
 
+	timeBeforeBuild := time.Now()
+	requestBody := BuildElasticSearchDocumentMulti(metricIndex, directoryIndex, esc.BulkBuffer)
+	esc.DocumentBuildDurationMs.Observe(float64(time.Since(timeBeforeBuild).Milliseconds()))
+
 	for attempt := uint(0); attempt <= esc.MaxRetry; attempt++ {
-		res, err := esc.bulkUpdate(indexName, esc.BulkBuffer)
+		res, err := esc.bulkUpdate(requestBody)
 
 		if err != nil {
-			esc.UpdatedMetrics.WithLabelValues("failure").Add(float64(len(esc.BulkBuffer)))
+			// esapi resturns a nil body in case of error
+			esc.UpdatedDocuments.WithLabelValues("failure", "any").Add(float64(len(esc.BulkBuffer)))
 			return fmt.Errorf("Could not write to index: %w", err)
 		}
 
 		if !res.IsError() {
-			esc.UpdatedMetrics.WithLabelValues("success").Add(float64(len(esc.BulkBuffer)))
+			esc.updateInternalMetrics(res)
 			res.Body.Close()
 			return nil
 
@@ -219,9 +273,33 @@ func (esc *BgMetadataElasticSearchConnector) sendAndClearBuffer() error {
 		}
 	}
 
-	esc.UpdatedMetrics.WithLabelValues("failure").Add(float64(len(esc.BulkBuffer)))
+	esc.UpdatedDocuments.WithLabelValues("failure", "any").Add(float64(len(esc.BulkBuffer)))
 	return fmt.Errorf("Could not write to index (status %d, error: %s)", statusCode, errorMessage)
 
+}
+
+// updateInternalMetrics increments BGMetadataConnector's metrics,
+func (esc *BgMetadataElasticSearchConnector) updateInternalMetrics(res *esapi.Response) {
+	defer func() {
+		if err := recover(); err != nil {
+			fmt.Println(err)
+			esc.logger.Warn("malformed bulk response", zap.Error(err.(error)))
+		}
+	}()
+	var mapResp map[string]interface{}
+	json.NewDecoder(res.Body).Decode(&mapResp)
+	esc.WriteDurationMs.Observe(mapResp["took"].(float64))
+	for _, item := range mapResp["items"].([]interface{}) {
+		mapCreate := item.(map[string]interface{})["create"].(map[string]interface{})
+		// protected by esc.Mux currentIndex may not change while looping
+		if int(mapCreate["status"].(float64)) == http.StatusCreated {
+			if mapCreate["_index"] == esc.currentIndex {
+				esc.UpdatedDocuments.WithLabelValues("created", "metric").Inc()
+			} else {
+				esc.UpdatedDocuments.WithLabelValues("created", "directory").Inc()
+			}
+		}
+	}
 }
 
 func (esc *BgMetadataElasticSearchConnector) clearBuffer() error {
@@ -229,43 +307,49 @@ func (esc *BgMetadataElasticSearchConnector) clearBuffer() error {
 	return nil
 }
 
-func (esc *BgMetadataElasticSearchConnector) bulkUpdate(indexName string, metrics []Metric) (*esapi.Response, error) {
-	timeBeforeBuild := time.Now()
-	doc := BuildElasticSearchDocumentMulti(indexName, metrics)
-	esc.DocumentBuildDurationMs.Observe(float64(time.Since(timeBeforeBuild).Milliseconds()))
+func (esc *BgMetadataElasticSearchConnector) bulkUpdate(body string) (*esapi.Response, error) {
 
 	req := esapi.BulkRequest{
-		Index:        indexName,
-		Body:         strings.NewReader(doc),
+		Body:         strings.NewReader(body),
 		DocumentType: documentType,
 	}
 
-	timeBeforeWrite := time.Now()
 	res, err := req.Do(context.Background(), esc.client)
-	esc.WriteDurationMs.Observe(float64(time.Since(timeBeforeWrite).Milliseconds()))
-
 	return res, err
 }
 
-func (esc *BgMetadataElasticSearchConnector) getIndex() (string, error) {
-	indexName := esc.IndexName + time.Now().Format(metrics_metadata_index_suffix_format)
+func (esc *BgMetadataElasticSearchConnector) getIndices() (string, string, error) {
+	metricIndexName, directoryIndexName := getIndicesNames(esc.IndexName)
+	esc.currentIndex = metricIndexName
+	_, isKnownIndex := esc.KnownIndices[metricIndexName]
 
-	_, isKnownIndex := esc.KnownIndices[indexName]
+	// no need to test both
 	if !isKnownIndex {
-		err := esc.createIndexAndMapping(indexName)
+		err := esc.createIndicesAndMapping(metricIndexName, directoryIndexName)
 		if err != nil {
-			return "", err
+			return "", "", err
 		}
-		esc.KnownIndices[indexName] = true
+		esc.KnownIndices[metricIndexName] = true
 	}
 
-	return indexName, nil
+	return metricIndexName, directoryIndexName, nil
 }
 
-func (esc *BgMetadataElasticSearchConnector) InsertDirectory(dir MetricDirectory) error {
+// InsertDirectory will add directory to the bulkBuffer
+func (esc *BgMetadataElasticSearchConnector) InsertDirectory(dir *MetricDirectory) error {
+	esc.addDocumentToBuff(dir)
 	return nil
 }
 
+// SelectDirectory unused, no need in ES
+// returns an error to signal that parent dir does not exist
 func (esc *BgMetadataElasticSearchConnector) SelectDirectory(dir string) (string, error) {
-	return "", nil
+	return dir, fmt.Errorf("")
+}
+
+func getIndicesNames(baseName string) (metricIndexName, directoryIndexName string) {
+	now := time.Now().Format(metrics_metadata_index_suffix_format)
+	metricIndexName = baseName + now
+	directoryIndexName = baseName + directories_index_suffix + now
+	return
 }
