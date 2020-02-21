@@ -279,9 +279,10 @@ username                    |     N     |  string     | ""            | let empt
 password                    |     N     |  string     | ""            | let empty if no authentication
 max_retry                   |     N     |  uint       | 0             | maximum number of retry on http errors, let empty if no retry
 index_name                  |     N     |  string     | "biggraphite_metrics"             | Base name of the indices to be used, will append the date as suffix 
-index_date_fmt              |     N     |  string     | ""%Y_%U""             | strftime format for the date suffix
+index_date_fmt              |     N     |  string     | "%Y_%U"            | strftime format for the date suffix
 
 #### Example
+The next example will create 2 indices weekly like metrics_2009_45  metrics_directories_2009_45
 
 ```
 [[route]]
@@ -303,6 +304,8 @@ type = 'bg_metadata'
         username = "user"
         password = "passwd"
 ```
+
+
 ## Imperatives
 
 imperatives can be used in two places:
