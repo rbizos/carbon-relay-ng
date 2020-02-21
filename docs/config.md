@@ -278,7 +278,8 @@ bulk_size                   |     Y     |  uint       | N/A           | Maximum 
 username                    |     N     |  string     | ""            | let empty if no authentication
 password                    |     N     |  string     | ""            | let empty if no authentication
 max_retry                   |     N     |  uint       | 0             | maximum number of retry on http errors, let empty if no retry
-index_name                  |     N     |  string     | "biggraphite_metrics"             | Name of the index to be used, will append the date as suffix in format _%Y-%M-%D
+index_name                  |     N     |  string     | "biggraphite_metrics"             | Base name of the indices to be used, will append the date as suffix 
+index_date_fmt              |     N     |  string     | ""%Y_%U""             | strftime format for the date suffix
 
 #### Example
 
