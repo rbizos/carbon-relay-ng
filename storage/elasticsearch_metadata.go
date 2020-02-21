@@ -21,12 +21,11 @@ import (
 )
 
 const (
-	namespace                            = "elasticsearch"
-	default_metrics_metadata_index       = "biggraphite_metrics"
-	default_index_date_format            = "%Y_%U"
-	metrics_metadata_index_suffix_format = "_2006-01-02"
-	directories_index_suffix             = "directories"
-	metricsMapping                       = `
+	namespace                      = "elasticsearch"
+	default_metrics_metadata_index = "biggraphite_metrics"
+	default_index_date_format      = "%Y_%U"
+	directories_index_suffix       = "directories"
+	metricsMapping                 = `
 {
 "_doc": {
 "properties": {
@@ -106,9 +105,9 @@ type BgMetadataElasticSearchConnector struct {
 	WriteDurationMs         prometheus.Histogram
 	DocumentBuildDurationMs prometheus.Histogram
 	KnownIndices            map[string]bool
-	BulkBuffer              []ElasticSearchDocument
+	bulkBuffer              []ElasticSearchDocument
 	BulkSize                uint
-	Mux                     sync.Mutex
+	mux                     sync.Mutex
 	MaxRetry                uint
 	IndexName, currentIndex string
 	IndexDateFmt            string //strftime fmt string
@@ -124,7 +123,7 @@ func newBgMetadataElasticSearchConnector(elasticSearchClient ElasticSearchClient
 	var esc = BgMetadataElasticSearchConnector{
 		client:       elasticSearchClient,
 		BulkSize:     bulkSize,
-		BulkBuffer:   make([]ElasticSearchDocument, 0, bulkSize),
+		bulkBuffer:   make([]ElasticSearchDocument, 0, bulkSize),
 		MaxRetry:     maxRetry,
 		IndexName:    indexName,
 		IndexDateFmt: IndexDateFmt,
@@ -132,7 +131,7 @@ func newBgMetadataElasticSearchConnector(elasticSearchClient ElasticSearchClient
 		UpdatedDocuments: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Namespace: namespace,
 			Name:      "updated_documents",
-			Help:      "total number of documents updated in ElasticSearch partitionned between metrics and directories",
+			Help:      "total number of documents updated in ElasticSearch splited between metrics and directories",
 		}, []string{"status", "type"}),
 
 		HTTPErrors: prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -232,11 +231,11 @@ func (esc *BgMetadataElasticSearchConnector) UpdateMetricMetadata(metric *Metric
 }
 
 func (esc *BgMetadataElasticSearchConnector) addDocumentToBuff(doc ElasticSearchDocument) error {
-	esc.Mux.Lock()
-	defer esc.Mux.Unlock()
+	esc.mux.Lock()
+	defer esc.mux.Unlock()
 
-	esc.BulkBuffer = append(esc.BulkBuffer, doc)
-	if len(esc.BulkBuffer) == cap(esc.BulkBuffer) {
+	esc.bulkBuffer = append(esc.bulkBuffer, doc)
+	if len(esc.bulkBuffer) == cap(esc.bulkBuffer) {
 		esc.sendAndClearBuffer()
 	}
 	return nil
@@ -249,12 +248,12 @@ func (esc *BgMetadataElasticSearchConnector) sendAndClearBuffer() error {
 	var statusCode int
 
 	if err != nil {
-		esc.UpdatedDocuments.WithLabelValues("failure").Add(float64(len(esc.BulkBuffer)))
+		esc.UpdatedDocuments.WithLabelValues("failure").Add(float64(len(esc.bulkBuffer)))
 		return fmt.Errorf("Could not get index: %w", err)
 	}
 
 	timeBeforeBuild := time.Now()
-	requestBody := BuildElasticSearchDocumentMulti(metricIndex, directoryIndex, esc.BulkBuffer)
+	requestBody := BuildElasticSearchDocumentMulti(metricIndex, directoryIndex, esc.bulkBuffer)
 	esc.DocumentBuildDurationMs.Observe(float64(time.Since(timeBeforeBuild).Milliseconds()))
 
 	for attempt := uint(0); attempt <= esc.MaxRetry; attempt++ {
@@ -262,7 +261,7 @@ func (esc *BgMetadataElasticSearchConnector) sendAndClearBuffer() error {
 
 		if err != nil {
 			// esapi resturns a nil body in case of error
-			esc.UpdatedDocuments.WithLabelValues("failure", "any").Add(float64(len(esc.BulkBuffer)))
+			esc.UpdatedDocuments.WithLabelValues("failure", "any").Add(float64(len(esc.bulkBuffer)))
 			return fmt.Errorf("Could not write to index: %w", err)
 		}
 
@@ -279,7 +278,7 @@ func (esc *BgMetadataElasticSearchConnector) sendAndClearBuffer() error {
 		}
 	}
 
-	esc.UpdatedDocuments.WithLabelValues("failure", "any").Add(float64(len(esc.BulkBuffer)))
+	esc.UpdatedDocuments.WithLabelValues("failure", "any").Add(float64(len(esc.bulkBuffer)))
 	return fmt.Errorf("Could not write to index (status %d, error: %s)", statusCode, errorMessage)
 
 }
@@ -309,7 +308,7 @@ func (esc *BgMetadataElasticSearchConnector) updateInternalMetrics(res *esapi.Re
 }
 
 func (esc *BgMetadataElasticSearchConnector) clearBuffer() error {
-	esc.BulkBuffer = esc.BulkBuffer[:0]
+	esc.bulkBuffer = esc.bulkBuffer[:0]
 	return nil
 }
 
