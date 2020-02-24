@@ -257,6 +257,7 @@ func (esc *BgMetadataElasticSearchConnector) sendAndClearBuffer() error {
 	esc.DocumentBuildDurationMs.Observe(float64(time.Since(timeBeforeBuild).Milliseconds()))
 
 	for attempt := uint(0); attempt <= esc.MaxRetry; attempt++ {
+		// todo implement exponential backoff 
 		res, err := esc.bulkUpdate(requestBody)
 
 		if err != nil {
@@ -287,7 +288,6 @@ func (esc *BgMetadataElasticSearchConnector) sendAndClearBuffer() error {
 func (esc *BgMetadataElasticSearchConnector) updateInternalMetrics(res *esapi.Response) {
 	defer func() {
 		if err := recover(); err != nil {
-			fmt.Println(err)
 			esc.logger.Warn("malformed bulk response", zap.Error(err.(error)))
 		}
 	}()
@@ -362,3 +362,4 @@ func (esc *BgMetadataElasticSearchConnector) getIndicesNames() (metricIndexName,
 	directoryIndexName = fmt.Sprintf("%s_%s_%s", esc.IndexName, directories_index_suffix, date)
 	return
 }
+
