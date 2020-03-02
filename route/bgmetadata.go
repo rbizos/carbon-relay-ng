@@ -324,7 +324,7 @@ func (m *BgMetadata) createMetadataDirectories() error {
 			return nil
 		case dir := <-m.metricDirectories:
 			if !dirFilter.TestString(dir) {
-				dirFilter.AddString(dir)
+				dirFilter.AddString(dir) // TODO (r.bizos) add all parents in the filter and do the update logic here
 				md := storage.NewMetricDirectory(dir)
 				md.UpdateDirectories(m.storage)
 			}
@@ -357,7 +357,10 @@ func (m *BgMetadata) Dispatch(dp encoding.Datapoint) {
 		metricMetadata := storage.NewMetricMetadata(dp.Name, m.storageSchemas, m.storageAggregations)
 		metric := storage.NewMetric(dp.Name, metricMetadata, dp.Tags)
 		// add metric name to directory channel for dirs to be created if needed in a separate goroutine
-		m.metricDirectories <- dp.Name
+		dir, err := dp.Directory()
+		if err == nil {
+			m.metricDirectories <- dir
+		}
 		m.maxConcurrentWrites <- 1
 		go func() {
 			m.storage.UpdateMetricMetadata(metric)
