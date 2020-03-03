@@ -22,9 +22,10 @@ import (
 
 const (
 	namespace                      = "elasticsearch"
-	default_metrics_metadata_index = "biggraphite_metrics"
+	default_metrics_metadata_index = "biggraphite"
 	default_index_date_format      = "%Y_%U"
 	directories_index_suffix       = "directories"
+	metrics_index_suffix           = "metrics"
 	metricsMapping                 = `
 {
 "_doc": {
@@ -357,7 +358,7 @@ func (esc *BgMetadataElasticSearchConnector) getIndicesNames() (metricIndexName,
 	if err != nil {
 		log.Fatalf("Index date format invalid strftime format: %s", err)
 	}
-	metricIndexName = fmt.Sprintf("%s_%s", esc.IndexName, date)
+	metricIndexName = fmt.Sprintf("%s_%s_%s", esc.IndexName, metrics_index_suffix, date)
 	directoryIndexName = fmt.Sprintf("%s_%s_%s", esc.IndexName, directories_index_suffix, date)
 	return
 }

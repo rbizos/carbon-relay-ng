@@ -59,7 +59,7 @@ func (dp Datapoint) FullName() string {
 func (dp Datapoint) Directory() (string, error) {
 	ind := strings.LastIndexByte(dp.Name, '.')
 	if ind < 0 {
-		return "", fmt.Errorf("Metric without directory")
+		return "", fmt.Errorf("Metric without directory %s", dp.Name)
 	}
 	return dp.Name[:ind], nil
 }
