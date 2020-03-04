@@ -23,7 +23,7 @@ import (
 const (
 	namespace                      = "elasticsearch"
 	default_metrics_metadata_index = "biggraphite"
-	default_index_date_format      = "%Y_%U"
+	default_index_date_format      = "%Y-%m-%d"
 	directories_index_suffix       = "directories"
 	metrics_index_suffix           = "metrics"
 	metricsMapping                 = `

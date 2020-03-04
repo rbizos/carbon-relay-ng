@@ -212,38 +212,34 @@ func (m *BgMetadata) clearBloomFilter() {
 	m.logger.Debug("starting goroutine for bloom filter cleanup")
 	m.wg.Add(1)
 	defer m.wg.Done()
-	t := time.NewTicker(m.bfCfg.ClearInterval)
-	defer t.Stop()
+	t := time.NewTicker(m.bfCfg.ClearWait)
 	for {
-		select {
-		case <-m.ctx.Done():
-			t.Stop()
-			return
-		case <-t.C:
-			for i := range m.shards {
-				// use array index to not copy lock
-				sh := &m.shards[i]
-				select {
-				case <-m.ctx.Done():
-					t.Stop()
-					return
-				default:
-					sh.lock.Lock()
-					if m.bfCfg.Cache != "" {
-						err := sh.saveShardState(m.bfCfg.Cache)
-						if err != nil {
-							m.logger.Error("cannot save shard state to filesystem", zap.Error(err))
-						}
-					}
-					m.logger.Info("clearing filter for shard", zap.Int("shard_number", i+1))
-					sh.filter.ClearAll()
-					m.mm.BloomFilterEntries.DeleteLabelValues(strconv.Itoa(sh.num))
-					sh.lock.Unlock()
-					time.Sleep(m.bfCfg.ClearWait)
-				}
+		for i := range m.shards {
+			select {
+			case <-m.ctx.Done():
+				t.Stop()
+				return
+			case <-t.C:
+				m.clearBloomFilterShard(i)
 			}
 		}
 	}
+}
+
+func (m *BgMetadata) clearBloomFilterShard(shardNum int) {
+	sh := &m.shards[shardNum]
+	sh.lock.Lock()
+	if m.bfCfg.Cache != "" {
+		err := sh.saveShardState(m.bfCfg.Cache)
+		if err != nil {
+			m.logger.Error("cannot save shard state to filesystem", zap.Error(err))
+		}
+	}
+	m.logger.Info("clearing filter for shard", zap.Int("shard_number", shardNum+1))
+	sh.filter.ClearAll()
+	m.mm.BloomFilterEntries.DeleteLabelValues(strconv.Itoa(sh.num))
+	sh.lock.Unlock()
+	time.Sleep(m.bfCfg.ClearWait)
 }
 
 func (m *BgMetadata) saveFilterConfig() error {
