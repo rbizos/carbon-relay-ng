@@ -193,7 +193,7 @@ func NewBgMetadataElasticSearchConnectorWithDefaults(cfg *cfg.BgMetadataESConfig
 	es, err := createElasticSearchClient(cfg.StorageServer, cfg.Username, cfg.Password)
 
 	if err != nil {
-		log.Fatalf("Could not create ElasticSearch connector: %w", err)
+		log.Fatalf("Could not create ElasticSearch connector: %v", err)
 	}
 
 	return newBgMetadataElasticSearchConnector(es, prometheus.DefaultRegisterer, cfg.BulkSize, cfg.MaxRetry, cfg.IndexName, cfg.IndexDateFmt)
