@@ -143,7 +143,7 @@ func NewBgMetadataRoute(key, prefix, sub, regex, aggregationCfg, schemasCfg stri
 	m.ctx, m.cancel = context.WithCancel(context.Background())
 
 	m.mm = metrics.NewBgMetadataMetrics(key)
-	m.mm.BloomFilterMaxEntries.Add(float64(bfCfg.N))
+	m.mm.BloomFilterMaxEntries.Set(float64(bfCfg.N))
 	m.rm = metrics.NewRouteMetrics(key, "bg_metadata", nil)
 
 	go m.clearBloomFilter()
