@@ -3,6 +3,7 @@ package input
 import (
 	"context"
 	"fmt"
+	"github.com/graphite-ng/carbon-relay-ng/metrics"
 	"strings"
 
 	"github.com/Shopify/sarama"
@@ -86,7 +87,7 @@ func NewKafka(brokers []string, topic string, consumerGroup string, kafkaConfig 
 	} else {
 		logger.Info("kafka input init correctly")
 	}
-
+	metrics.RegisterKafkaConsumerMetrics("sarama", kafkaConfig)
 	return &Kafka{
 		BaseInput: BaseInput{handler: h, name: fmt.Sprintf("kafka[topic=%s;cg=%s;id=%s]", topic, consumerGroup, kafkaConfig.ClientID)},
 		topic:     topic,
