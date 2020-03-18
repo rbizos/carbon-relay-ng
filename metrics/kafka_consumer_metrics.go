@@ -27,7 +27,6 @@ func (k *KafkaConsumerMetrics) Collect(c chan<- prometheus.Metric) {
 		key = strings.ReplaceAll(key, "-", "_") // Because prometheus does not handle - in metric
 		if value["count"] != nil {              // counter see MetricRegistry.GetAll() implementation
 			value := value["count"].(int64)
-			println("count: ", key, value)
 			counter := prometheus.NewCounter(prometheus.CounterOpts{
 				Namespace:   "kafka",
 				Subsystem:   "consumer",
@@ -38,7 +37,6 @@ func (k *KafkaConsumerMetrics) Collect(c chan<- prometheus.Metric) {
 			counter.Add(float64(value))
 			c <- counter
 		} else if value["value"] != nil { // gauge see MetricRegistry.GetAll() implementation
-			println("value: ", key, value["value"].(float64))
 			gauge := prometheus.NewGauge(prometheus.GaugeOpts{
 				Namespace:   "kafka",
 				Subsystem:   "consumer",
