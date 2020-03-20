@@ -151,6 +151,7 @@ type Rewriter struct {
 	New string
 	Not string
 	Max int
+	Dup bool `toml:"duplicate,omitempty"`
 }
 
 type Init struct {

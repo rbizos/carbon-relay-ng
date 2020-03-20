@@ -243,7 +243,8 @@ func parseRewriterRequest(r *http.Request) (rewriter.RW, *handlerError) {
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 		return rewriter.RW{}, &handlerError{err, "Couldn't parse json", http.StatusBadRequest}
 	}
-	rw, err := rewriter.New(request.Old, request.New, "", request.Max)
+	// so far dup rewriter can only be added from config
+	rw, err := rewriter.New(request.Old, request.New, "", request.Max, false)
 	if err != nil {
 		return rewriter.RW{}, &handlerError{err, "Couldn't create rewriter", http.StatusBadRequest}
 	}

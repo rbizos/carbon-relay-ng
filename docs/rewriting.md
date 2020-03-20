@@ -50,8 +50,21 @@ old = '/server\.([^.]+)/'
 new = 'servers.${1}.collectd'
 not = 'collectd'
 max = -1
+
+# same, with duplicate on
+[[rewriter]]
+old = '/server\.([^.]+)/'
+new = 'servers.${1}.collectd'
+not = 'collectd'
+max = -1
+duplicate = true
 ```
 
+### Duplicate
+
+The duplicate feature allows the renamed datapoint to be duplicated and the new point will be routed instantly to prevent additionnal renaming (thus bypassing aggregation !), the original datapoint can then match additionnal rewriters. 
+
+This feature is meant only for metadata route to copy aggregation naming without doing any aggregation
 
 ### Using init commands
 
