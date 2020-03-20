@@ -417,7 +417,8 @@ func readAddRewriter(s *toki.Scanner, table Table) error {
 		return errFmtAddRewriter
 	}
 
-	rw, err := rewriter.New(old, new, "", max)
+	// so far dup rewriter can only be added from config
+	rw, err := rewriter.New(old, new, "", max, false)
 	if err != nil {
 		return err
 	}

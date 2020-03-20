@@ -117,7 +117,15 @@ func (table *Table) Dispatch(dp encoding.Datapoint) {
 	}
 
 	for _, rw := range conf.rewriters {
-		dp.Name = rw.DoString(dp.Name)
+
+		tname, dup := rw.DoString(dp.Name)
+		if dup == true {
+			dupDp := dp
+			dupDp.Name = tname
+			table.DispatchAggregate(dupDp)
+		} else {
+			dp.Name = tname
+		}
 	}
 
 	for _, aggregator := range conf.aggregators {
@@ -617,7 +625,7 @@ func (table *Table) InitAggregation(config cfg.Config) error {
 
 func (table *Table) InitRewrite(config cfg.Config) error {
 	for i, rewriterConfig := range config.Rewriter {
-		rw, err := rewriter.New(rewriterConfig.Old, rewriterConfig.New, rewriterConfig.Not, rewriterConfig.Max)
+		rw, err := rewriter.New(rewriterConfig.Old, rewriterConfig.New, rewriterConfig.Not, rewriterConfig.Max, rewriterConfig.Dup)
 		if err != nil {
 			table.logger.Error("could not add rewriter", zap.Error(err))
 			return fmt.Errorf("could not add rewriter #%d", i+1)

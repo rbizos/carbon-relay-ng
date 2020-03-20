@@ -24,11 +24,12 @@ type RW struct {
 	not   []byte
 	re    *regexp.Regexp
 	notRe *regexp.Regexp
+	dup   bool
 }
 
-// NewFromByte creates a rewriter that will rewrite old to new, up to max times
+// New creates a rewriter that will rewrite old to new, up to max times
 // for regex, max must be -1
-func New(old, new, not string, max int) (RW, error) {
+func New(old, new, not string, max int, dup bool) (RW, error) {
 	if len(old) == 0 {
 		return RW{}, errEmptyOld
 	}
@@ -66,24 +67,26 @@ func New(old, new, not string, max int) (RW, error) {
 		not:   []byte(not),
 		re:    re,
 		notRe: notRe,
+		dup:   dup,
 	}, nil
 }
 
-func (r RW) DoString(s string) string {
+// DoString returns the new string and a bool indicating if the metric should be duplicated
+func (r RW) DoString(s string) (string, bool) {
 	if r.notRe != nil {
 		if r.notRe.MatchString(s) {
-			return s
+			return s, false
 		}
 	} else if len(r.Not) > 0 {
 		if strings.Contains(s, r.Not) {
-			return s
+			return s, false
 		}
 	}
 	if r.re != nil {
-		return (*r.re).ReplaceAllString(s, r.New)
+		return (*r.re).ReplaceAllString(s, r.New), r.dup
 	}
 
-	return strings.Replace(s, r.Old, r.New, r.Max)
+	return strings.Replace(s, r.Old, r.New, r.Max), r.dup
 }
 
 func (r RW) Do(buf []byte) []byte {
