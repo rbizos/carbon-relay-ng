@@ -27,7 +27,7 @@ type RW struct {
 	dup   bool
 }
 
-// NewFromByte creates a rewriter that will rewrite old to new, up to max times
+// New creates a rewriter that will rewrite old to new, up to max times
 // for regex, max must be -1
 func New(old, new, not string, max int, dup bool) (RW, error) {
 	if len(old) == 0 {
@@ -71,8 +71,7 @@ func New(old, new, not string, max int, dup bool) (RW, error) {
 	}, nil
 }
 
-// DoString returns the new string and a bool indicating if the metriuc should be duplicated
-
+// DoString returns the new string and a bool indicating if the metric should be duplicated
 func (r RW) DoString(s string) (string, bool) {
 	if r.notRe != nil {
 		if r.notRe.MatchString(s) {
