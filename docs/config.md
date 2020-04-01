@@ -273,7 +273,7 @@ storage                     |     N     |  string     | ""            |  Storage
 
 setting                     | mandatory | values      | default       | description 
 ----------------------------|-----------|-------------|---------------|------------
-storage_server              |     Y     |  string     | N/A           | address of ES server to use 
+storage_servers              |     Y     |  []string     | N/A           | addresses of ES servers to use 
 bulk_size                   |     Y     |  uint       | N/A           | Maximum number of metrics metadata that can be bulk sent at once
 username                    |     N     |  string     | ""            | let empty if no authentication
 password                    |     N     |  string     | ""            | let empty if no authentication
@@ -298,7 +298,7 @@ type = 'bg_metadata'
     storage_aggregations = "storage-aggregation.conf"
     storage = "elasticsearch"
         [route.bg_metadata.elasticsearch]
-        storage_server = "http://elasticsearch:9200"
+        storage_server = ["http://elasticsearch:9200"]
         bulk_size = 10000
         index_name = "metrics"
         username = "user"

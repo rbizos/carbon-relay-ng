@@ -167,13 +167,11 @@ func newBgMetadataElasticSearchConnector(elasticSearchClient ElasticSearchClient
 	return &esc
 }
 
-func createElasticSearchClient(server, username, password string) (*elasticsearch.Client, error) {
+func createElasticSearchClient(servers []string, username, password string) (*elasticsearch.Client, error) {
 	cfg := elasticsearch.Config{
-		Addresses: []string{
-			server,
-		},
-		Username: username,
-		Password: password,
+		Addresses: servers,
+		Username:  username,
+		Password:  password,
 	}
 
 	es, err := elasticsearch.NewClient(cfg)
@@ -190,7 +188,7 @@ func createElasticSearchClient(server, username, password string) (*elasticsearc
 
 // NewBgMetadataElasticSearchConnectorWithDefaults is the public contructor of BgMetadataElasticSearchConnector
 func NewBgMetadataElasticSearchConnectorWithDefaults(cfg *cfg.BgMetadataESConfig) *BgMetadataElasticSearchConnector {
-	es, err := createElasticSearchClient(cfg.StorageServer, cfg.Username, cfg.Password)
+	es, err := createElasticSearchClient(cfg.StorageServers, cfg.Username, cfg.Password)
 
 	if err != nil {
 		log.Fatalf("Could not create ElasticSearch connector: %v", err)
