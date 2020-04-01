@@ -800,7 +800,7 @@ func (table *Table) InitRoutes(config cfg.Config, meta toml.MetaData) error {
 				if bgMetadataCfg.ESConfig == nil {
 					return fmt.Errorf("error adding route '%s': ElasticSearch configuration is needed", routeConfig.Key)
 				}
-				if bgMetadataCfg.ESConfig.StorageServer == "" {
+				if len(bgMetadataCfg.ESConfig.StorageServers) == 0 {
 					return fmt.Errorf("error adding route '%s': undefined storage server", routeConfig.Key)
 				}
 				if bgMetadataCfg.ESConfig.BulkSize == 0 {

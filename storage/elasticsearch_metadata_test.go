@@ -223,7 +223,7 @@ func BenchmarkWritesWithBulkSize100(b *testing.B) {
 func GetClient() (*elasticsearch.Client, error) {
 	if es == nil {
 		fmt.Printf("creating\n")
-		es, err := createElasticSearchClient("http://localhost:9200", "", "")
+		es, err := createElasticSearchClient([]string{"http://localhost:9200"}, "", "")
 		return es, err
 	}
 	fmt.Printf("cache\n")
