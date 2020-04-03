@@ -1,0 +1,40 @@
+{
+    "index_patterns": ["biggraphite_metrics-*"], 
+    "settings": {
+      "index.lifecycle.name": "biggraphite", 
+      "index.lifecycle.rollover_alias": "biggraphite_metrics"
+    },
+    "mappings":{
+    "_doc": {
+    "properties": {
+                "depth": { 
+                    "type": "long"
+                },
+    
+                "name": {
+                    "type": "keyword",
+                    "ignore_above": 1024
+                },
+                "uuid": {
+                    "type": "keyword"
+                },
+                "config": {
+                    "type": "object"
+                }
+            },
+                "dynamic_templates": [
+                {
+                    "strings_as_keywords": {
+                        "match": "p*",
+                        "match_mapping_type": "string",
+                        "mapping": {
+                            "type": "keyword",
+                            "ignore_above": 256,
+                            "ignore_malformed": true
+                        }
+                    }
+                }
+            ]
+        }
+    }
+}

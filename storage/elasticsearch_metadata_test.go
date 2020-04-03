@@ -9,9 +9,11 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/elastic/go-elasticsearch/v6"
 	"github.com/graphite-ng/carbon-relay-ng/storage/mocks"
+	"github.com/lestrrat-go/strftime"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
@@ -146,6 +148,26 @@ func TestHandleDocTypes(t *testing.T) {
 
 	assert.Equal(t, 1.0, nMetrics)
 	assert.Equal(t, 3.0, nDir)
+
+}
+
+func TestIndexNaming(t *testing.T) {
+	mockElasticSearchClient := &mocks.ElasticSearchClient{}
+	registry := prometheus.NewRegistry()
+	esc := newBgMetadataElasticSearchConnector(mockElasticSearchClient, registry, 4, 2, "biggraphite", "%Y-%m-%d")
+	metricIndex, directoryIndex := esc.getIndicesNames()
+
+	now := time.Now().UTC()
+	correctName, _ := strftime.Format("biggraphite_metrics_%Y-%m-%d", now)
+	assert.Equal(t, correctName, metricIndex)
+	correctName, _ = strftime.Format("biggraphite_directories_%Y-%m-%d", now)
+	assert.Equal(t, correctName, directoryIndex)
+
+	//then the index should not include date format
+	esc = newBgMetadataElasticSearchConnector(mockElasticSearchClient, registry, 4, 2, "biggraphite", "")
+	metricIndex, directoryIndex = esc.getIndicesNames()
+	assert.Equal(t, "biggraphite_metrics", metricIndex)
+	assert.Equal(t, "biggraphite_directories", directoryIndex)
 
 }
 
