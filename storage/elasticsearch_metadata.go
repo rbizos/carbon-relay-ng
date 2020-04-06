@@ -298,7 +298,7 @@ func (esc *BgMetadataElasticSearchConnector) updateInternalMetrics(res *esapi.Re
 		mapCreate := item.(map[string]interface{})["create"].(map[string]interface{})
 		// protected by esc.Mux currentIndex may not change while looping
 		if int(mapCreate["status"].(float64)) == http.StatusCreated {
-			if mapCreate["_index"] == esc.currentIndex {
+			if strings.HasPrefix(mapCreate["_index"].(string), esc.currentIndex) {
 				esc.UpdatedDocuments.WithLabelValues("created", "metric").Inc()
 			} else {
 				esc.UpdatedDocuments.WithLabelValues("created", "directory").Inc()

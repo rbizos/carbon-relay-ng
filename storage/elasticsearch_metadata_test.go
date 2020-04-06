@@ -259,9 +259,9 @@ func mockResponse(docs []ElasticSearchDocument, metricIndex, directoryIndex stri
 	for _, doc := range docs {
 		switch doc.(type) {
 		case *Metric:
-			s = append(s, fmt.Sprintf("{\"create\":{\"_index\": %q, \"status\":201}}", metricIndex))
+			s = append(s, fmt.Sprintf("{\"create\":{\"_index\": %q, \"status\":201}}", metricIndex+"-00001"))
 		case *MetricDirectory:
-			s = append(s, fmt.Sprintf("{\"create\":{\"_index\": %q, \"status\":201}}", directoryIndex))
+			s = append(s, fmt.Sprintf("{\"create\":{\"_index\": %q, \"status\":201}}", directoryIndex+"-00001"))
 		default:
 			continue
 		}

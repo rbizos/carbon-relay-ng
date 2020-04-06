@@ -309,7 +309,12 @@ type = 'bg_metadata'
 
 #### Managing indices
 
- ```./script/setup_es_indices``` can use to create indices with ILM using default values of index_name with a daily rollover and deletion of 10 days old indices
+ ```
+ ./scripts/setup_policy.sh
+ ./scripts/setup_templates.sh
+ ./scripts/create_initial_indices.sh
+ ``` 
+ can use to create indices with ILM using default values of index_name with a daily rollover and deletion of 10 days old indices
 
 ## Imperatives
 
