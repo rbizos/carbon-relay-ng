@@ -1,0 +1,7 @@
+{
+    "aliases": {
+      "biggraphite_metrics":{
+        "is_write_index": true 
+      }
+    }
+  }

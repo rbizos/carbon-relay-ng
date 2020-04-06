@@ -100,19 +100,20 @@ const (
 )
 
 type BgMetadataElasticSearchConnector struct {
-	client                  ElasticSearchClient
-	UpdatedDocuments        *prometheus.CounterVec
-	HTTPErrors              *prometheus.CounterVec
-	WriteDurationMs         prometheus.Histogram
-	DocumentBuildDurationMs prometheus.Histogram
-	KnownIndices            map[string]bool
-	bulkBuffer              []ElasticSearchDocument
-	BulkSize                uint
-	mux                     sync.Mutex
-	MaxRetry                uint
-	IndexName, currentIndex string
-	IndexDateFmt            string //strftime fmt string
-	logger                  *zap.Logger
+	client                                   ElasticSearchClient
+	UpdatedDocuments                         *prometheus.CounterVec
+	HTTPErrors                               *prometheus.CounterVec
+	WriteDurationMs                          prometheus.Histogram
+	DocumentBuildDurationMs                  prometheus.Histogram
+	KnownIndices                             map[string]bool
+	bulkBuffer                               []ElasticSearchDocument
+	BulkSize                                 uint
+	mux                                      sync.Mutex
+	MaxRetry                                 uint
+	IndexName, currentIndex                  string
+	IndexDateFmt                             string //strftime fmt string
+	DirectoriesIndexAlias, MetricsIndexAlias string
+	logger                                   *zap.Logger
 }
 
 type ElasticSearchClient interface {
@@ -160,7 +161,8 @@ func newBgMetadataElasticSearchConnector(elasticSearchClient ElasticSearchClient
 		esc.IndexName = default_metrics_metadata_index
 	}
 	if esc.IndexDateFmt == "" {
-		esc.IndexDateFmt = default_index_date_format
+		esc.DirectoriesIndexAlias = fmt.Sprintf("%s_%s", esc.IndexName, directories_index_suffix)
+		esc.MetricsIndexAlias = fmt.Sprintf("%s_%s", esc.IndexName, metrics_index_suffix)
 	}
 
 	esc.KnownIndices = map[string]bool{}
@@ -351,6 +353,9 @@ func (esc *BgMetadataElasticSearchConnector) SelectDirectory(dir string) (string
 }
 
 func (esc *BgMetadataElasticSearchConnector) getIndicesNames() (metricIndexName, directoryIndexName string) {
+	if len(esc.DirectoriesIndexAlias) > 0 && len(esc.MetricsIndexAlias) > 0 {
+		return esc.MetricsIndexAlias, esc.DirectoriesIndexAlias
+	}
 	now := time.Now().UTC()
 	date, err := strftime.Format(esc.IndexDateFmt, now)
 	if err != nil {
